@@ -706,6 +706,7 @@ abstract class ClaBaseAdapter<T>(
 
     override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
         super.onDetachedFromRecyclerView(recyclerView)
+        myHandler.removeCallbacksAndMessages(null)
         this.recyclerView = null
     }
 
