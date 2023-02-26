@@ -1,4 +1,4 @@
-package com.cla.adapter.demo.adapter
+package com.cla.adapter.library
 
 import android.content.Context
 import android.view.LayoutInflater
@@ -10,11 +10,10 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
-import com.cla.adapter.library.*
 import com.cla.adapter.library.holder.*
 
 abstract class ClaBaseAdapter<T>(
-    internal val context: Context
+    val context: Context
 ) : RecyclerView.Adapter<ClaBaseViewHolder<T>>() {
 
     companion object {
@@ -43,7 +42,7 @@ abstract class ClaBaseAdapter<T>(
     internal var recyclerView: RecyclerView? = null
     val curRv: () -> RecyclerView? = { recyclerView }
 
-    /** 是否向 [dataList] 中添加过数据 */
+    /** 是否向 [dataList] 中添加过数据，避免一开始就显示emptyView */
     private var hasSetListData: Boolean = false
 
     val inflater by lazy { LayoutInflater.from(context) }
@@ -210,6 +209,18 @@ abstract class ClaBaseAdapter<T>(
         myHandler.sendMessage(msg)
     }
 
+    open fun refreshData(list: List<T>) {
+        refreshData(list, scrollToTop = true)
+    }
+
+    open fun refreshData(list: List<T>, scrollToTop: Boolean) {
+        refreshData(list, scrollToTop = scrollToTop, scrollToTopIncludeHeader = true)
+    }
+
+    open fun refreshData(list: List<T>, scrollToTop: Boolean, scrollToTopIncludeHeader: Boolean) {
+        refreshData(list, scrollToTop = scrollToTop, scrollToTopIncludeHeader = scrollToTopIncludeHeader, scrollToTopOffset = 0)
+    }
+
     /**
      * 刷新数据
      * adapter中添加了headerView和footerView,如果headerView是webView，那么notifyDataSetChanged会导致WebView闪屏
@@ -221,8 +232,7 @@ abstract class ClaBaseAdapter<T>(
      * @param scrollToTopIncludeHeader 滚动到顶部的时候，是否包含headerView的位置
      * @param scrollToTopOffset 滚动到顶部的偏移量
      */
-    @JvmOverloads
-    open fun refreshData(list: List<T>, scrollToTop: Boolean, scrollToTopIncludeHeader: Boolean = true, scrollToTopOffset: Int = 0) {
+    open fun refreshData(list: List<T>, scrollToTop: Boolean, scrollToTopIncludeHeader: Boolean, scrollToTopOffset: Int) {
         if (System.identityHashCode(dataList) != System.identityHashCode(list)) {
             dataList.clear()
             dataList.addAll(list)
@@ -363,7 +373,17 @@ abstract class ClaBaseAdapter<T>(
     }
 
     /**
-     * 替换items
+     * 替换item
+     * @param pos 替换的开始位置
+     * @param t 替换的数据
+     * @param payload String?
+     */
+    open fun replaceItem(pos: Int, t: T, payload: String? = null) {
+        replaceItems(pos, listOf(t), payload)
+    }
+
+    /**
+     * 替换items 只能替换连续的集合，如果是不连续的，那就只能一个一个的设置了
      * @param pos 替换的开始位置
      * @param newList 替换的数据
      * @param payload String?
@@ -586,7 +606,7 @@ abstract class ClaBaseAdapter<T>(
         }
 
         val delegate = delegateList?.findLast { it.first == viewType }
-        delegate?.let { return it.second.createHolder(this, parent) }
+        delegate?.let { return it.second.createMyHolder(this, parent) }
 
         return convertHolder(this, parent)
     }
@@ -691,11 +711,11 @@ abstract class ClaBaseAdapter<T>(
      *  https://www.jianshu.com/p/4f66c2c71d8c
      */
     override fun onViewDetachedFromWindow(holder: ClaBaseViewHolder<T>) {
-        holder.onViewDetachedFromWindow()
+        holder.viewDetachedFromWindow()
     }
 
     override fun onViewAttachedToWindow(holder: ClaBaseViewHolder<T>) {
-        holder.onViewAttachedToWindow()
+        holder.viewAttachedToWindow()
     }
 
     //https://www.jianshu.com/p/4f66c2c71d8c
@@ -724,7 +744,7 @@ abstract class ClaBaseAdapter<T>(
         lateinit var context: Context
         lateinit var inflater: LayoutInflater
 
-        final fun createHolder(adapter: ClaBaseAdapter<T>, parent: ViewGroup): ClaBaseViewHolder<T> {
+        final fun createMyHolder(adapter: ClaBaseAdapter<T>, parent: ViewGroup): ClaBaseViewHolder<T> {
             return convertHolder(adapter, parent)
         }
 
@@ -741,24 +761,30 @@ abstract class ClaBaseAdapter<T>(
 }
 
 internal inline fun <T> createHolder(
-    adapter: ClaBaseAdapter<T>,
+    baseAdapter: ClaBaseAdapter<T>,
     @LayoutRes layoutRes: Int,
     parent: ViewGroup,
     inflater: LayoutInflater,
-    crossinline initHolder: ClaBaseViewHolder<T>.() -> Unit = {},
-    crossinline bindData: ClaBaseViewHolder<T>.(T, Int, String?) -> Unit
+    crossinline initHolder: ClaBaseViewHolder<T>.() -> Unit,
+    crossinline onViewDetachedFromWindow: (holder: ClaBaseViewHolder<T>) -> Unit,
+    crossinline onViewAttachedToWindow: (holder: ClaBaseViewHolder<T>) -> Unit,
+    crossinline bindData: ClaBaseViewHolder<T>.(T, Int, String?) -> Unit,
 ) = createHolder(
-    adapter,
-    inflater.inflate(layoutRes, parent, false),
-    initHolder,
-    bindData
+    baseAdapter = baseAdapter,
+    view = inflater.inflate(layoutRes, parent, false),
+    initHolder = initHolder,
+    onViewDetachedFromWindow = onViewDetachedFromWindow,
+    onViewAttachedToWindow = onViewAttachedToWindow,
+    bindData = bindData,
 )
 
 internal inline fun <T> createHolder(
     baseAdapter: ClaBaseAdapter<T>,
     view: View,
-    crossinline initHolder: ClaBaseViewHolder<T>.() -> Unit = {},
-    crossinline bindData: ClaBaseViewHolder<T>.(T, Int, String?) -> Unit
+    crossinline initHolder: ClaBaseViewHolder<T>.() -> Unit,
+    crossinline onViewDetachedFromWindow: (holder: ClaBaseViewHolder<T>) -> Unit,
+    crossinline onViewAttachedToWindow: (holder: ClaBaseViewHolder<T>) -> Unit,
+    crossinline bindData: ClaBaseViewHolder<T>.(T, Int, String?) -> Unit,
 ) = object : ClaBaseViewHolder<T>(view) {
 
     init {
@@ -772,10 +798,17 @@ internal inline fun <T> createHolder(
         this.pos = position
         this.bindData(t, position, payload)
     }
+
+    override fun viewDetachedFromWindow() {
+        onViewDetachedFromWindow(this)
+    }
+
+    override fun viewAttachedToWindow() {
+        onViewAttachedToWindow(this)
+    }
 }
 
-//*******************************************************用来实现的adapter***************************************************************
-
+//************************************************item只有一种类型*******************************************************************
 /**
  * 整个adapter中只有一个类型的item时，继承这个类
  * @property layoutRes itemView的xml，如果不传的话，那就必须重写[createItemView]方法
@@ -792,27 +825,41 @@ abstract class SingleAdapterAbs<T>(
         parent: ViewGroup
     ) = if (layoutRes != null) {
         createHolder<T>(
-            adapter,
-            layoutRes,
-            parent,
-            inflater,
-            initHolder = { initHolder() }
+            baseAdapter = adapter,
+            layoutRes = layoutRes,
+            parent = parent,
+            inflater = inflater,
+            initHolder = { initHolder() },
+            onViewDetachedFromWindow = { it.detachedFromWindow() },
+            onViewAttachedToWindow = { it.attachedToWindow() }
         ) { bean, pos, payload ->
             bindHolder(bean, pos, payload)
         }
     } else {
         createHolder<T>(
-            adapter,
-            createItemView()!!,
-            initHolder = { initHolder() }
+            baseAdapter = adapter,
+            view = createItemView()!!,
+            initHolder = { initHolder() },
+            onViewDetachedFromWindow = { it.detachedFromWindow() },
+            onViewAttachedToWindow = { it.attachedToWindow() }
         ) { bean, pos, payload ->
             bindHolder(bean, pos, payload)
         }
     }
 
     open fun createItemView(): View? = null
+    open fun ClaBaseViewHolder<T>.detachedFromWindow() {}
+    open fun ClaBaseViewHolder<T>.attachedToWindow() {}
+
     abstract fun ClaBaseViewHolder<T>.initHolder()
     abstract fun ClaBaseViewHolder<T>.bindHolder(t: T, pos: Int, payload: String?)
+}
+//************************************************item只有一种类型*******************************************************************
+
+
+//*************************************************item有多种类型********************************************************************
+abstract class MultiAdapterAbs<T>(context: Context) : ClaBaseAdapter<T>(context) {
+    override fun convertHolder(adapter: ClaBaseAdapter<T>, parent: ViewGroup) = DefaultViewHolder<T>(context)
 }
 
 /**
@@ -828,30 +875,36 @@ abstract class MultiAdapterDelegateAbs<T>(
         parent: ViewGroup
     ) = if (layoutRes != null) {
         createHolder<T>(
-            adapter,
-            layoutRes,
-            parent,
-            inflater,
-            initHolder = { initHolder() }
+            baseAdapter = adapter,
+            layoutRes = layoutRes,
+            parent = parent,
+            inflater = inflater,
+            initHolder = { initHolder() },
+            onViewDetachedFromWindow = { it.detachedFromWindow() },
+            onViewAttachedToWindow = { it.attachedToWindow() }
         ) { bean, pos, payload ->
             bindHolder(bean, pos, payload)
-
-
             View(parent.context)
         }
     } else {
         createHolder<T>(
-            adapter,
-            createItemView()!!,
-            initHolder = { initHolder() }
+            baseAdapter = adapter,
+            view = createItemView()!!,
+            initHolder = { initHolder() },
+            onViewDetachedFromWindow = { it.detachedFromWindow() },
+            onViewAttachedToWindow = { it.attachedToWindow() }
         ) { bean, pos, payload ->
             bindHolder(bean, pos, payload)
         }
     }
 
     open fun createItemView(): View? = null
+    open fun ClaBaseViewHolder<T>.detachedFromWindow() {}
+    open fun ClaBaseViewHolder<T>.attachedToWindow() {}
+
     abstract fun ClaBaseViewHolder<T>.initHolder()
     abstract fun ClaBaseViewHolder<T>.bindHolder(t: T, pos: Int, payload: String?)
-}
 
-//*******************************************************用来实现的adapter***************************************************************
+}
+//*************************************************item有多种类型********************************************************************
+

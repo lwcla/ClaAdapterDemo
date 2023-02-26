@@ -1,18 +1,143 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:background="@color/transparent"
+        app:elevation="1dp">
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <com.google.android.material.appbar.CollapsingToolbarLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_scrollFlags="scroll|enterAlways">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingVertical="10dp">
+
+                <cn.cla.round.view.widget.ClaRoundTextView
+                    android:id="@+id/tvRefreshData"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="7dp"
+                    android:text="刷新数据"
+                    app:cla_normal_borderColor="@color/purple_700"
+                    app:cla_normal_borderWidth="1dp"
+                    app:cla_normal_radius="4dp"
+                    app:cla_view_changeAlpha_whenPress="true" />
+
+                <cn.cla.round.view.widget.ClaRoundTextView
+                    android:id="@+id/tvShowHeaderView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="7dp"
+                    android:text="显示headerView"
+                    app:cla_normal_borderColor="@color/purple_700"
+                    app:cla_normal_borderWidth="1dp"
+                    app:cla_normal_radius="4dp"
+                    app:cla_view_changeAlpha_whenPress="true" />
+
+                <cn.cla.round.view.widget.ClaRoundTextView
+                    android:id="@+id/tvHideHeaderView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="7dp"
+                    android:text="隐藏headerView"
+                    app:cla_normal_borderColor="@color/purple_700"
+                    app:cla_normal_borderWidth="1dp"
+                    app:cla_normal_radius="4dp"
+                    app:cla_view_changeAlpha_whenPress="true" />
+
+                <cn.cla.round.view.widget.ClaRoundTextView
+                    android:id="@+id/tvUpdateHeaderView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="7dp"
+                    android:text="修改headerView"
+                    app:cla_normal_borderColor="@color/purple_700"
+                    app:cla_normal_borderWidth="1dp"
+                    app:cla_normal_radius="4dp"
+                    app:cla_view_changeAlpha_whenPress="true" />
+
+                <cn.cla.round.view.widget.ClaRoundTextView
+                    android:id="@+id/tvShowEmptyView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="7dp"
+                    android:text="显示emptyView"
+                    app:cla_normal_borderColor="@color/purple_700"
+                    app:cla_normal_borderWidth="1dp"
+                    app:cla_normal_radius="4dp"
+                    app:cla_view_changeAlpha_whenPress="true" />
+
+                <cn.cla.round.view.widget.ClaRoundTextView
+                    android:id="@+id/tvShowFooterView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="7dp"
+                    android:text="显示footerView"
+                    app:cla_normal_borderColor="@color/purple_700"
+                    app:cla_normal_borderWidth="1dp"
+                    app:cla_normal_radius="4dp"
+                    app:cla_view_changeAlpha_whenPress="true" />
+
+                <cn.cla.round.view.widget.ClaRoundTextView
+                    android:id="@+id/tvHideFooterView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="7dp"
+                    android:text="隐藏footerView"
+                    app:cla_normal_borderColor="@color/purple_700"
+                    app:cla_normal_borderWidth="1dp"
+                    app:cla_normal_radius="4dp"
+                    app:cla_view_changeAlpha_whenPress="true" />
+
+                <cn.cla.round.view.widget.ClaRoundTextView
+                    android:id="@+id/tvReplaceItem"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="7dp"
+                    android:text="替换数据"
+                    app:cla_normal_borderColor="@color/purple_700"
+                    app:cla_normal_borderWidth="1dp"
+                    app:cla_normal_radius="4dp"
+                    app:cla_view_changeAlpha_whenPress="true" />
+
+                <androidx.constraintlayout.helper.widget.Flow
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:constraint_referenced_ids="tvRefreshData,tvShowHeaderView,tvHideHeaderView,tvUpdateHeaderView,tvShowEmptyView,tvShowFooterView,tvHideFooterView,tvReplaceItem"
+                    app:flow_horizontalGap="10dp"
+                    app:flow_horizontalStyle="packed"
+                    app:flow_verticalGap="10dp"
+                    app:flow_wrapMode="chain"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </com.google.android.material.appbar.CollapsingToolbarLayout>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvData"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

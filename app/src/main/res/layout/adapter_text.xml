@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<cn.cla.round.view.widget.ClaRoundTextView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/tvText"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center"
+    android:paddingVertical="7dp"
+    android:textSize="14sp"
+    app:cla_view_changeAlpha_whenPress="true"
+    app:cla_view_lineColor="@color/color_eeeeee"
+    app:cla_view_lineSpace="15dp"
+    app:cla_view_lineWidth="1dp"
+    app:cla_view_showBottomLine="true" />
+
+
+

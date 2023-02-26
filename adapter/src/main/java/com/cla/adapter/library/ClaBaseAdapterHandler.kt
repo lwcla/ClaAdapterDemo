@@ -5,7 +5,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.view.View
-import com.cla.adapter.demo.adapter.ClaBaseAdapter
 import java.lang.ref.WeakReference
 
 internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Looper.getMainLooper()) {

@@ -13,7 +13,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.IdRes
 import androidx.core.view.children
 import androidx.recyclerview.widget.RecyclerView
-import com.cla.adapter.demo.adapter.ClaBaseAdapter
+import com.cla.adapter.library.ClaBaseAdapter
 import com.cla.adapter.library.PreLoadBuilder
 import com.cla.adapter.library.clickDebounce
 import com.google.android.flexbox.FlexboxLayoutManager
@@ -166,9 +166,9 @@ abstract class ClaBaseViewHolder<T>(itemView: View) : RecyclerView.ViewHolder(it
     /**
      *  https://www.jianshu.com/p/4f66c2c71d8c
      */
-    open fun onViewDetachedFromWindow() {}
+    open fun viewDetachedFromWindow() {}
 
-    open fun onViewAttachedToWindow() {}
+    open fun viewAttachedToWindow() {}
 }
 
 /**
@@ -295,7 +295,7 @@ internal class HeaderHolder<T>(context: Context) : ContainerViewHolder<T>(contex
 internal class FooterHolder<T>(context: Context) : ContainerViewHolder<T>(context)
 internal class EmptyHolder<T>(context: Context) : ContainerViewHolder<T>(context)
 
-internal class DefaultViewHolder<T>(context: Context, itemView: View = ContainerView(context)) : ClaBaseViewHolder<T>(itemView) {
+class DefaultViewHolder<T>(context: Context, itemView: View = ContainerView(context)) : ClaBaseViewHolder<T>(itemView) {
     override fun bind(baseAdapter: ClaBaseAdapter<T>, t: T, position: Int, payload: String?) {
 
     }
