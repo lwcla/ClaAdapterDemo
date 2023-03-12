@@ -17,13 +17,12 @@ import androidx.core.view.setMargins
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import cn.cla.round.view.widget.ClaRoundTextView
-import com.cla.adapter.library.ClaBaseAdapter
-import com.cla.adapter.library.MultiAdapterAbs
-import com.cla.adapter.library.MultiAdapterDelegateAbs
-import com.cla.adapter.library.SingleAdapterAbs
+import com.cla.adapter.library.*
 import com.cla.adapter.library.holder.ClaBaseViewHolder
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -45,6 +44,8 @@ class MainActivity : AppCompatActivity() {
     private val tvShowFooterView by lazy { findViewById<TextView>(R.id.tvShowFooterView) }
     private val tvHideFooterView by lazy { findViewById<TextView>(R.id.tvHideFooterView) }
     private val tvReplaceItem by lazy { findViewById<TextView>(R.id.tvReplaceItem) }
+    private val tvAddToCenter by lazy { findViewById<TextView>(R.id.tvAddToCenter) }
+    private val tvRemove by lazy { findViewById<TextView>(R.id.tvRemove) }
 
     private lateinit var adapter: ClaBaseAdapter<String>
 
@@ -120,19 +121,17 @@ class MainActivity : AppCompatActivity() {
             it.setOnLoadMoreListener { loadData() }
             it.setItemChildClickListener { view, i, s ->
                 when (view.id) {
-                    R.id.tv_item_1 -> Toast.makeText(this, "点击了偶数$s", Toast.LENGTH_SHORT).show()
-                    R.id.tv_item_2 -> Toast.makeText(this, "点击了奇数$s", Toast.LENGTH_SHORT).show()
+                    R.id.tv_item_1 -> Toast.makeText(this, "点击了偶数$s 位置=${i}", Toast.LENGTH_SHORT).show()
+                    R.id.tv_item_2 -> Toast.makeText(this, "点击了奇数$s 位置=${i}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
 
         adapter.headerView = headerView
-        adapter.showHeaderView = false
-
+        adapter.showHeaderView = true
         adapter.emptyView = emptyView
-
         adapter.footerView = footerView
-        adapter.showFooterView = false
+        adapter.showFooterView = true
 
         tvRefreshData.setOnClickListener {
             //刷新数据
@@ -177,11 +176,39 @@ class MainActivity : AppCompatActivity() {
             //替换数据
             val list = mutableListOf<String>()
             repeat(5) { list.add("这是被替换的数据-$it") }
-            adapter.replaceItems(10, list)
+            adapter.replaceItems(100, list)
         }
 
-        rvData.layoutManager = LinearLayoutManager(this)
+        tvAddToCenter.setOnClickListener {
+            val list = mutableListOf<String>()
+            repeat(5) { list.add("这是被添加的数据-$it") }
+            adapter.addData(list, adapter.dataSize / 2)
+        }
+
+        tvRemove.setOnClickListener {
+            adapter.dataList.getOrNull(10)?.let {
+                adapter.removeData(it)
+            }
+        }
+
+        val manager = LinearLayoutManager(this)
+//        val manager = GridLayoutManager(this, 4)
+//        val manager = StaggeredGridLayoutManager(3, RecyclerView.VERTICAL)
+
+
+        rvData.layoutManager = manager
         rvData.adapter = adapter
+
+        if (manager is GridLayoutManager) {
+            manager.spanSizeLookup = object : SpanSizeLookup() {
+                override fun getSpanSize(position: Int): Int {
+                    return when {
+                        adapter.isHeaderHolder(position) || adapter.isFooterHolder(position) || adapter.isEmptyHolder(position) || adapter.isLoadHolder(position) -> 4
+                        else -> 1
+                    }
+                }
+            }
+        }
 
         refreshData()
     }
@@ -251,7 +278,7 @@ class MyAdapterDelegate1 : MultiAdapterDelegateAbs<String>() {
     @SuppressLint("SetTextI18n")
     override fun ClaBaseViewHolder<String>.bindHolder(t: String, pos: Int, payload: String?) {
         val textView = itemView.covert<TextView>()
-        textView.text = "这是偶数--$t"
+        textView.text = "这是偶数--$t-$pos"
     }
 
     override fun createItemView() = ClaRoundTextView(context).also {
@@ -259,7 +286,7 @@ class MyAdapterDelegate1 : MultiAdapterDelegateAbs<String>() {
         it.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         it.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         it.gravity = Gravity.CENTER
-        it.setPadding(15.dp)
+        it.setPadding(55.dp)
         it.resetClaLine {
             lineColor = ContextCompat.getColor(context, com.cla.adapter.library.R.color.color_eeeeee)
             lineWidth = 1.dp.toFloat()
@@ -280,7 +307,7 @@ class MyAdapterDelegate2 : MultiAdapterDelegateAbs<String>() {
     @SuppressLint("SetTextI18n")
     override fun ClaBaseViewHolder<String>.bindHolder(t: String, pos: Int, payload: String?) {
         val textView = itemView.covert<TextView>()
-        textView.text = "这是奇数-$t"
+        textView.text = "这是奇数-$t-$pos"
     }
 
     override fun createItemView() = ClaRoundTextView(context).also {
@@ -289,7 +316,7 @@ class MyAdapterDelegate2 : MultiAdapterDelegateAbs<String>() {
         it.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         it.setTextColor(ContextCompat.getColor(context, R.color.purple_700))
         it.gravity = Gravity.CENTER
-        it.setPadding(7.dp)
+        it.setPadding(20.dp)
         it.resetClaLine {
             lineColor = ContextCompat.getColor(context, R.color.purple_700)
             lineWidth = 1.dp.toFloat()
@@ -310,7 +337,7 @@ class MyAdapterDelegate3 : MultiAdapterDelegateAbs<String>() {
     @SuppressLint("SetTextI18n")
     override fun ClaBaseViewHolder<String>.bindHolder(t: String, pos: Int, payload: String?) {
         val textView = itemView.covert<TextView>()
-        textView.text = "这是3的倍数-$t"
+        textView.text = "这是3的倍数-$t-$pos"
     }
 
     override fun createItemView() = ClaRoundTextView(context).also {
@@ -319,14 +346,12 @@ class MyAdapterDelegate3 : MultiAdapterDelegateAbs<String>() {
         it.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         it.setTextColor(ContextCompat.getColor(context, R.color.purple_200))
         it.gravity = Gravity.CENTER
-        it.setPadding(7.dp)
+        it.setPadding(15.dp)
         it.resetClaLine {
             lineColor = ContextCompat.getColor(context, R.color.purple_200)
-            lineWidth = 3.dp.toFloat()
-            lineSpace = 25.dp.toFloat()
+            lineWidth = 5.dp.toFloat()
+            lineSpace = 10.dp.toFloat()
             showBottom = true
-            showLeft = true
-            showRight = true
         }
         it.changeAlphaWhenPress = true
     }

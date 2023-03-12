@@ -5,6 +5,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.view.View
+import com.cla.adapter.library.ClaBaseAdapter.Companion.REFRESH_ADAPTER_EMPTY
+import com.cla.adapter.library.ClaBaseAdapter.Companion.REFRESH_ADAPTER_PRE_LOAD
 import java.lang.ref.WeakReference
 
 internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Looper.getMainLooper()) {
@@ -62,6 +64,29 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
     override fun handleMessage(msg: Message) {
         val adapter = ref.get() ?: return
 
+        println(
+            "ClaBaseAdapterHandler.handleMessage lwl msg.what=${
+                when (msg.what) {
+                    REFRESH_DATA -> "refresh_data"
+                    ADD_DATA -> "add_data"
+                    REMOVE_DATA -> "remove_data"
+                    REFRESH_ITEM -> "refresh_item"
+                    REFRESH_PRE_FAILED -> "refresh_pre_failed"
+                    REFRESH_PRE_NO_MORE -> "refresh_pre_no_more"
+                    REFRESH_PRE_LOADING -> "refresh_pre_loading"
+                    REFRESH_SHOW_HEADER_VIEW -> "refresh_show_header_view"
+                    REFRESH_HEADER_VIEW -> "refresh_header_view"
+                    REFRESH_SHOW_FOOTER_VIEW -> "refresh_show_footer_view"
+                    REFRESH_FOOTER_VIEW -> "refresh_footer_view"
+                    REFRESH_ITEMS -> "refresh_items"
+                    SCROLL_TO_POSITION -> "scroll_to_position"
+                    CLOSE_PRE_LOAD -> "close_pre_load"
+                    REPLACE_ITEMS -> "replace_items"
+                    else -> "else"
+                }
+            }"
+        )
+
         when (msg.what) {
 
             REFRESH_DATA -> adapter.apply {
@@ -69,7 +94,9 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 val list = data.list
 
                 val lastItemCount = itemCount
-                val adapterIsEmpty = lastItemCount == 0
+                //刚装载adapter的时候，如果设置了loadHolder，那itemCount就不等于0，但是这个时候还是可以当成空数据来处理
+                //如果只是用showDataSize来判断的话，很有可能不准，这个时候可能正在显示emptyView
+                val adapterIsEmpty = lastItemCount == 0 || (lastItemCount == 1 && isLoadHolder(0))
                 val lastDataSize = showDataSize
 
                 if (System.identityHashCode(showDataList) != System.identityHashCode(list)) {
@@ -101,7 +128,8 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 val startPos = adapterPos(0)
 
                 val removeCount = lastDataSize - showDataSize
-                val deleteStartPos = startPos + showDataSize
+                val deleteStartPos = maxOf(startPos + showDataSize - 1, 0)
+
                 if (removeCount > 0) {
                     //从后面删除多余的数据
                     //如果从前面删的话，刷新数据的时候能明显看到数据被删除的过程
@@ -109,12 +137,11 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 }
 
                 //刷新数据item
-                notifyItemRangeChanged(startPos, showDataSize, "")
-
+                notifyVisibleItems(startPos, showDataSize, "")
                 //刷新预加载view
-                if (needShowPreView) {
-                    notifyItemChanged(loadHolderPos, "refreshPreView")
-                }
+                notifyPreLoad()
+                //恢复状态
+                restoreState.value
             }
 
             ADD_DATA -> adapter.apply {
@@ -131,6 +158,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     val emptyPos = findPositionByType(ClaBaseAdapter.EMPTY_VIEW)
                     if (emptyPos >= 0) {
                         notifyItemRemoved(emptyPos)
+                        notifyVisibleItems(emptyPos, itemCount, REFRESH_ADAPTER_EMPTY)
                     }
                 }
 
@@ -143,10 +171,10 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 val aPos = adapterPos(addIndex)
                 val count = list.size
 
-                notifyItemRangeInserted(aPos, count)
-                if (!addToEnd) {
-                    notifyItemRangeChanged(aPos, itemCount - aPos, "")
-                }
+                //刷新数据item
+                notifyVisibleItems(aPos, showDataSize, "")
+                //刷新预加载view
+                notifyPreLoad()
             }
 
             REMOVE_DATA -> adapter.apply {
@@ -160,10 +188,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 showDataList.removeAt(showPos)
 
                 val aPos = adapterPos(showPos)
-                notifyItemRemoved(aPos)
-
-                val count = itemCount - aPos
-                notifyItemRangeChanged(aPos, count, "")
+                notifyVisibleItems(aPos, showDataSize, "")
             }
 
             REFRESH_ITEM -> adapter.apply {
@@ -203,7 +228,11 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 //那先addData之后再loadFailed，preLoadBuilder在addData被重置成初始状态了。failed状态就一直都显示不出来
                 //handler是按顺序执行的，倒是不用担心这个状态会冲掉后面设置的状态
                 preLoadBuilder.loadFailed()
-                notifyItemChanged(loadHolderPos, "refreshPreView")
+                val aPos = findPositionByType(ClaBaseAdapter.LOADING_VIEW)
+                if (aPos < 0) {
+                    notifyItemInserted(loadHolderPos)
+                }
+                notifyPreLoad()
             }
 
             //刷新预加载view
@@ -217,7 +246,11 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 }
 
                 preLoadBuilder.noMoreData()
-                notifyItemChanged(loadHolderPos, "refreshPreView")
+                val aPos = findPositionByType(ClaBaseAdapter.LOADING_VIEW)
+                if (aPos < 0) {
+                    notifyItemInserted(loadHolderPos)
+                }
+                notifyPreLoad()
             }
 
             //刷新预加载view
@@ -231,7 +264,12 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 }
 
                 preLoadBuilder.loading()
-                notifyItemChanged(loadHolderPos, "refreshPreView")
+
+                val aPos = findPositionByType(ClaBaseAdapter.LOADING_VIEW)
+                if (aPos < 0) {
+                    notifyItemInserted(loadHolderPos)
+                }
+                notifyPreLoad()
             }
 
             //关闭预加载
@@ -240,13 +278,13 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     return
                 }
 
-                val aPos = findPositionByType(ClaBaseAdapter.LOADING_VIEW)
                 preLoadBuilder.close()
 
+                val aPos = findPositionByType(ClaBaseAdapter.LOADING_VIEW)
                 if (aPos >= 0) {
                     notifyItemRemoved(aPos)
-                    notifyItemRangeChanged(aPos, 1, "refreshPreView")
                 }
+                notifyPreLoad()
             }
 
             REFRESH_SHOW_HEADER_VIEW -> adapter.apply {
@@ -310,14 +348,33 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                         index >= pos && index < pos + newList.size
                     }
                     showDataList.removeAll(removeList)
-                    showDataList.addAll(pos, newList)
+                    if (showDataList.lastIndex < pos) {
+                        showDataList.addAll(newList)
+                    } else {
+                        showDataList.addAll(pos, newList)
+                    }
                 }
 
                 //刷新数据
                 val count = minOf(showDataSize - pos, newList.size)
-                notifyItemRangeChanged(adapterPos(pos), count, payload)
+                notifyVisibleItems(adapterPos(pos), count, payload)
             }
         }
+    }
+
+    /** 刷新预加载view */
+    fun notifyPreLoad() = ref.get()?.apply {
+        if (needShowPreView) {
+            notifyItemChanged(loadHolderPos, REFRESH_ADAPTER_PRE_LOAD)
+        }
+    }
+
+    /** 删除刷新预加载的msg */
+    fun removePreLoadMsg() {
+        removeMessages(ClaBaseAdapterHandler.CLOSE_PRE_LOAD)
+        removeMessages(ClaBaseAdapterHandler.REFRESH_PRE_FAILED)
+        removeMessages(ClaBaseAdapterHandler.REFRESH_PRE_NO_MORE)
+        removeMessages(ClaBaseAdapterHandler.REFRESH_PRE_LOADING)
     }
 }
 
