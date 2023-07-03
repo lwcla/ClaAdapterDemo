@@ -325,6 +325,11 @@ abstract class ClaBaseAdapter<T>(
     }
 
     /** 添加数据 */
+    open fun addData(t: T, index: Int) {
+        addData(listOf(t), index)
+    }
+
+    /** 添加数据 */
     open fun addData(list: List<T>, index: Int) {
         if (dataList.isEmpty()) {
             refreshData(list)
@@ -348,6 +353,7 @@ abstract class ClaBaseAdapter<T>(
             return
         }
 
+        dataList.remove(data)
         val msg = myHandler.obtainMessage()
         msg.what = ClaBaseAdapterHandler.REMOVE_DATA
         msg.obj = data
