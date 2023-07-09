@@ -114,6 +114,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 //如果adapter在刷新数据之前就已经是空的，那就刷新所有
                 if (adapterIsEmpty) {
                     notifyDataSetChanged()
+                    restoreState.value
                     return
                 }
 
@@ -128,18 +129,35 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 val startPos = adapterPos(0)
 
                 val removeCount = lastDataSize - showDataSize
-                val deleteStartPos = maxOf(startPos + showDataSize - 1, 0)
+                val deleteStartPos = maxOf(startPos + showDataSize, 0)
 
                 if (removeCount > 0) {
                     //从后面删除多余的数据
                     //如果从前面删的话，刷新数据的时候能明显看到数据被删除的过程
                     notifyItemRangeRemoved(deleteStartPos, removeCount)
+                } else {
+                    if (isShowEmpty && lastDataSize == 0) {
+                        //如果当前显示的是emptyView，新添加的数据不为空的情况下，需要先调用notifyItemRemoved方法
+                        //否则在notifyItemRangeInserted会去检查数据下标，然后报数组越界的错
+                        val emptyPos = findPositionByType(ClaBaseAdapter.EMPTY_VIEW)
+                        if (emptyPos >= 0) {
+                            notifyItemRemoved(emptyPos)
+                            notifyVisibleItems(emptyPos, itemCount, REFRESH_ADAPTER_EMPTY)
+                        }
+                    }
+
+                    val addCount = showDataSize - lastDataSize
+                    val addStartPos = maxOf(startPos + lastDataSize, 0)
+
+                    if (addCount > 0) {
+                        //从后面添加新的数据
+                        notifyItemRangeInserted(addStartPos, addCount)
+                    }
                 }
 
-                if (showDataSize > 0 && startPos >= 0) {
-                    //刷新数据item
-                    notifyVisibleItems(startPos, showDataSize, "")
-                }
+
+                //刷新数据item
+                notifyVisibleItems(startPos, showDataSize, "")
 
                 //刷新预加载view
                 notifyPreLoad()
@@ -214,7 +232,6 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 }
 
                 val pos = adapterPos(startPos)
-
                 val count = minOf(showDataSize - pos, item.count)
                 val payload = item.payload
                 //刷新数据
