@@ -136,8 +136,11 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     notifyItemRangeRemoved(deleteStartPos, removeCount)
                 }
 
-                //刷新数据item
-                notifyVisibleItems(startPos, showDataSize, "")
+                if (showDataSize > 0 && startPos >= 0) {
+                    //刷新数据item
+                    notifyVisibleItems(startPos, showDataSize, "")
+                }
+
                 //刷新预加载view
                 notifyPreLoad()
                 //恢复状态
@@ -171,8 +174,9 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 val aPos = adapterPos(addIndex)
                 val count = list.size
 
+                notifyItemRangeInserted(aPos, count)
                 //刷新数据item
-                notifyVisibleItems(aPos, showDataSize, "")
+                notifyVisibleItems(aPos, showDataSize - aPos, "")
                 //刷新预加载view
                 notifyPreLoad()
             }
@@ -188,7 +192,8 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 showDataList.removeAt(showPos)
 
                 val aPos = adapterPos(showPos)
-                notifyVisibleItems(aPos, showDataSize, "")
+                notifyItemRemoved(aPos)
+                notifyVisibleItems(aPos, showDataSize - aPos, "")
             }
 
             REFRESH_ITEM -> adapter.apply {
@@ -208,10 +213,12 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     return
                 }
 
-                val count = minOf(showDataSize - startPos, item.count)
+                val pos = adapterPos(startPos)
+
+                val count = minOf(showDataSize - pos, item.count)
                 val payload = item.payload
                 //刷新数据
-                notifyItemRangeChanged(adapterPos(startPos), count, payload)
+                notifyVisibleItems(pos, count, payload)
             }
 
             //刷新预加载view
@@ -365,7 +372,12 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
     /** 刷新预加载view */
     fun notifyPreLoad() = ref.get()?.apply {
         if (needShowPreView) {
-            notifyItemChanged(loadHolderPos, REFRESH_ADAPTER_PRE_LOAD)
+            val aPos = findPositionByType(ClaBaseAdapter.LOADING_VIEW)
+            if (aPos < 0) {
+                return@apply
+            }
+
+            notifyItemChanged(aPos, REFRESH_ADAPTER_PRE_LOAD)
         }
     }
 

@@ -142,10 +142,22 @@
                     app:cla_normal_radius="4dp"
                     app:cla_view_changeAlpha_whenPress="true" />
 
+                <cn.cla.round.view.widget.ClaRoundTextView
+                    android:id="@+id/tvRefreshAllData"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="7dp"
+                    android:text="刷新所有"
+                    app:cla_normal_borderColor="@color/purple_700"
+                    app:cla_normal_borderWidth="1dp"
+                    app:cla_normal_radius="4dp"
+                    app:cla_view_changeAlpha_whenPress="true" />
+
                 <androidx.constraintlayout.helper.widget.Flow
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    app:constraint_referenced_ids="tvRefreshData,tvShowHeaderView,tvHideHeaderView,tvUpdateHeaderView,tvShowEmptyView,tvShowFooterView,tvHideFooterView,tvReplaceItem,tvAddToCenter,tvRemove"
+                    app:constraint_referenced_ids="tvRefreshData,tvShowHeaderView,tvHideHeaderView,tvUpdateHeaderView,tvShowEmptyView,tvShowFooterView,tvHideFooterView,tvReplaceItem,tvAddToCenter,tvRemove,tvRefreshAllData"
                     app:flow_horizontalGap="10dp"
                     app:flow_horizontalStyle="packed"
                     app:flow_verticalGap="10dp"

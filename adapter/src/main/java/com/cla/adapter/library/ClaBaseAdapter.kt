@@ -10,8 +10,14 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
-import com.cla.adapter.library.holder.*
-import java.util.*
+import com.cla.adapter.library.holder.ClaBaseViewHolder
+import com.cla.adapter.library.holder.DefaultViewHolder
+import com.cla.adapter.library.holder.EmptyHolder
+import com.cla.adapter.library.holder.FooterHolder
+import com.cla.adapter.library.holder.HeaderHolder
+import com.cla.adapter.library.holder.LoadingViewHolder
+import java.util.Arrays
+import java.util.concurrent.Executors
 
 abstract class ClaBaseAdapter<T>(
     val context: Context
@@ -48,6 +54,7 @@ abstract class ClaBaseAdapter<T>(
     }
 
     private val myHandler = ClaBaseAdapterHandler(this)
+    private val singleExecutors = Executors.newSingleThreadExecutor()
 
     /** 在第一次装载adapter时，如果保存了之前的列表，那么[refreshData]之后，会恢复RecyclerView的状态 */
     internal val restoreState = lazy {
@@ -96,15 +103,17 @@ abstract class ClaBaseAdapter<T>(
     var showHeaderView: Boolean
         get() = _showHeaderView
         set(value) {
-            if (value == _showHeaderView) {
-                return
-            }
+            singleExecutors.execute {
+                if (value == _showHeaderView) {
+                    return@execute
+                }
 
-            myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_SHOW_HEADER_VIEW)
-            val msg = myHandler.obtainMessage()
-            msg.what = ClaBaseAdapterHandler.REFRESH_SHOW_HEADER_VIEW
-            msg.obj = value
-            myHandler.sendMessage(msg)
+                myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_SHOW_HEADER_VIEW)
+                val msg = myHandler.obtainMessage()
+                msg.what = ClaBaseAdapterHandler.REFRESH_SHOW_HEADER_VIEW
+                msg.obj = value
+                myHandler.sendMessage(msg)
+            }
         }
 
     /**
@@ -115,15 +124,16 @@ abstract class ClaBaseAdapter<T>(
     var headerView: View?
         get() = _headerView
         set(value) {
-            if (value == _headerView) {
-                return
+            singleExecutors.execute {
+                if (value == _headerView) {
+                    return@execute
+                }
+                myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_HEADER_VIEW)
+                val msg = myHandler.obtainMessage()
+                msg.what = ClaBaseAdapterHandler.REFRESH_HEADER_VIEW
+                msg.obj = value
+                myHandler.sendMessage(msg)
             }
-
-            myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_HEADER_VIEW)
-            val msg = myHandler.obtainMessage()
-            msg.what = ClaBaseAdapterHandler.REFRESH_HEADER_VIEW
-            msg.obj = value
-            myHandler.sendMessage(msg)
         }
 
     /**
@@ -134,15 +144,16 @@ abstract class ClaBaseAdapter<T>(
     var showFooterView: Boolean
         get() = _showFooterView
         set(value) {
-            if (value == _showFooterView) {
-                return
+            singleExecutors.execute {
+                if (value == _showFooterView) {
+                    return@execute
+                }
+                myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_SHOW_FOOTER_VIEW)
+                val msg = myHandler.obtainMessage()
+                msg.what = ClaBaseAdapterHandler.REFRESH_SHOW_FOOTER_VIEW
+                msg.obj = value
+                myHandler.sendMessage(msg)
             }
-
-            myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_SHOW_FOOTER_VIEW)
-            val msg = myHandler.obtainMessage()
-            msg.what = ClaBaseAdapterHandler.REFRESH_SHOW_FOOTER_VIEW
-            msg.obj = value
-            myHandler.sendMessage(msg)
         }
 
     /**
@@ -153,15 +164,16 @@ abstract class ClaBaseAdapter<T>(
     var footerView: View?
         get() = _footerView
         set(value) {
-            if (value == _footerView) {
-                return
+            singleExecutors.execute {
+                if (value == _footerView) {
+                    return@execute
+                }
+                myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_FOOTER_VIEW)
+                val msg = myHandler.obtainMessage()
+                msg.what = ClaBaseAdapterHandler.REFRESH_FOOTER_VIEW
+                msg.obj = value
+                myHandler.sendMessage(msg)
             }
-
-            myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_FOOTER_VIEW)
-            val msg = myHandler.obtainMessage()
-            msg.what = ClaBaseAdapterHandler.REFRESH_FOOTER_VIEW
-            msg.obj = value
-            myHandler.sendMessage(msg)
         }
 
     /**
@@ -239,10 +251,12 @@ abstract class ClaBaseAdapter<T>(
     }
 
     fun scrollToPosition(pos: Int) {
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.SCROLL_TO_POSITION
-        msg.arg1 = pos
-        myHandler.sendMessage(msg)
+        singleExecutors.execute {
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.SCROLL_TO_POSITION
+            msg.arg1 = pos
+            myHandler.sendMessage(msg)
+        }
     }
 
     /** 判断pos的位置是否为headerHolder */
@@ -281,29 +295,32 @@ abstract class ClaBaseAdapter<T>(
      * @param scrollToTopOffset 滚动到顶部的偏移量
      */
     open fun refreshData(list: List<T>, scrollToTop: Boolean, scrollToTopIncludeHeader: Boolean, scrollToTopOffset: Int) {
-        if (System.identityHashCode(dataList) != System.identityHashCode(list)) {
-            dataList.clear()
-            dataList.addAll(list)
+        singleExecutors.execute {
+            if (System.identityHashCode(dataList) != System.identityHashCode(list)) {
+                dataList.clear()
+                dataList.addAll(list)
+            }
+            hasSetListData = true
+
+            //刷新数据的时候移除其他关于数据的消息
+            //headerView和footerView的消息跟数据是并行的，不能在这里把它们俩的消息也清空掉了
+            myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_DATA)
+            myHandler.removeMessages(ClaBaseAdapterHandler.ADD_DATA)
+            myHandler.removeMessages(ClaBaseAdapterHandler.REMOVE_DATA)
+            myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_ITEM)
+            myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_ITEMS)
+            myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_PRE_FAILED)
+            myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_PRE_NO_MORE)
+            myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_PRE_LOADING)
+            myHandler.removeMessages(ClaBaseAdapterHandler.SCROLL_TO_POSITION)
+            myHandler.removeMessages(ClaBaseAdapterHandler.CLOSE_PRE_LOAD)
+            myHandler.removeMessages(ClaBaseAdapterHandler.REPLACE_ITEMS)
+
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.REFRESH_DATA
+            msg.obj = AdapterRefreshData(list, scrollToTop, scrollToTopIncludeHeader, scrollToTopOffset)
+            myHandler.sendMessage(msg)
         }
-        hasSetListData = true
-
-        //刷新数据的时候移除其他关于数据的消息
-        //headerView和footerView的消息跟数据是并行的，不能在这里把它们俩的消息也清空掉了
-        myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_DATA)
-        myHandler.removeMessages(ClaBaseAdapterHandler.ADD_DATA)
-        myHandler.removeMessages(ClaBaseAdapterHandler.REMOVE_DATA)
-        myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_ITEM)
-        myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_ITEMS)
-        myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_PRE_FAILED)
-        myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_PRE_NO_MORE)
-        myHandler.removeMessages(ClaBaseAdapterHandler.REFRESH_PRE_LOADING)
-        myHandler.removeMessages(ClaBaseAdapterHandler.SCROLL_TO_POSITION)
-        myHandler.removeMessages(ClaBaseAdapterHandler.CLOSE_PRE_LOAD)
-
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.REFRESH_DATA
-        msg.obj = AdapterRefreshData(list, scrollToTop, scrollToTopIncludeHeader, scrollToTopOffset)
-        myHandler.sendMessage(msg)
     }
 
     /**
@@ -331,33 +348,37 @@ abstract class ClaBaseAdapter<T>(
 
     /** 添加数据 */
     open fun addData(list: List<T>, index: Int) {
-        if (dataList.isEmpty()) {
-            refreshData(list)
-            return
+        singleExecutors.execute {
+            if (dataList.isEmpty()) {
+                refreshData(list)
+                return@execute
+            }
+
+            val addToEnd = if (index == dataSize) 1 else 0
+            dataList.addAll(index, list)
+            hasSetListData = true
+
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.ADD_DATA
+            msg.arg1 = index
+            msg.arg2 = addToEnd
+            msg.obj = list
+            myHandler.sendMessage(msg)
         }
-
-        val addToEnd = if (index == dataSize) 1 else 0
-        dataList.addAll(index, list)
-        hasSetListData = true
-
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.ADD_DATA
-        msg.arg1 = index
-        msg.arg2 = addToEnd
-        msg.obj = list
-        myHandler.sendMessage(msg)
     }
 
     open fun removeData(data: T) {
-        if (dataList.find { it == data } == null) {
-            return
-        }
+        singleExecutors.execute {
+            val result = dataList.remove(data)
+            if (!result) {
+                return@execute
+            }
 
-        dataList.remove(data)
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.REMOVE_DATA
-        msg.obj = data
-        myHandler.sendMessage(msg)
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.REMOVE_DATA
+            msg.obj = data
+            myHandler.sendMessage(msg)
+        }
     }
 
     /**
@@ -372,10 +393,12 @@ abstract class ClaBaseAdapter<T>(
     }
 
     open fun refreshItem(t: T, payload: String? = null) = try {
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.REFRESH_ITEM
-        msg.obj = AdapterRefreshItem(t, payload)
-        myHandler.sendMessage(msg)
+        singleExecutors.execute {
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.REFRESH_ITEM
+            msg.obj = AdapterRefreshItem(t, payload)
+            myHandler.sendMessage(msg)
+        }
     } catch (e: Exception) {
         e.printStackTrace()
     }
@@ -417,10 +440,12 @@ abstract class ClaBaseAdapter<T>(
             return
         }
 
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.REFRESH_ITEMS
-        msg.obj = AdapterRefreshItems(startData, count, payload)
-        myHandler.sendMessage(msg)
+        singleExecutors.execute {
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.REFRESH_ITEMS
+            msg.obj = AdapterRefreshItems(startData, count, payload)
+            myHandler.sendMessage(msg)
+        }
     }
 
     /**
@@ -440,81 +465,91 @@ abstract class ClaBaseAdapter<T>(
      * @param payload String?
      */
     open fun replaceItems(pos: Int, newList: List<T>, payload: String? = null) {
-        if (dataList.isEmpty()) {
-            return
-        }
-
-        if (System.identityHashCode(dataList) != System.identityHashCode(newList)) {
-            val removeList = dataList.filterIndexed { index, t ->
-                index >= pos && index < pos + newList.size
+        singleExecutors.execute {
+            if (dataList.isEmpty()) {
+                return@execute
             }
-            dataList.removeAll(removeList)
-            if (dataList.lastIndex < pos) {
-                dataList.addAll(newList)
-            } else {
-                dataList.addAll(pos, newList)
-            }
-        }
 
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.REPLACE_ITEMS
-        msg.obj = AdapterReplaceItems(pos, newList, payload)
-        myHandler.sendMessage(msg)
+            if (System.identityHashCode(dataList) != System.identityHashCode(newList)) {
+                val removeList = dataList.filterIndexed { index, t ->
+                    index >= pos && index < pos + newList.size
+                }
+                dataList.removeAll(removeList)
+                if (dataList.lastIndex < pos) {
+                    dataList.addAll(newList)
+                } else {
+                    dataList.addAll(pos, newList)
+                }
+            }
+
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.REPLACE_ITEMS
+            msg.obj = AdapterReplaceItems(pos, newList, payload)
+            myHandler.sendMessage(msg)
+        }
     }
 
     /** 关闭预加载，刷新数据之后，会被重新打开 */
     fun closePreLoad() {
-        if (!needShowPreView) {
-            return
+        singleExecutors.execute {
+            if (!needShowPreView) {
+                return@execute
+            }
+
+            //表示已经在显示预加载的布局了，拦截[preload]方法的重复调用
+            preLoadBuilder.showPreView()
+
+            myHandler.removePreLoadMsg()
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.CLOSE_PRE_LOAD
+            myHandler.sendMessage(msg)
         }
-
-        //表示已经在显示预加载的布局了，拦截[preload]方法的重复调用
-        preLoadBuilder.showPreView()
-
-        myHandler.removePreLoadMsg()
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.CLOSE_PRE_LOAD
-        myHandler.sendMessage(msg)
     }
 
     fun loadFailed() {
-        if (!needShowPreView) {
-            return
+        singleExecutors.execute {
+            if (!needShowPreView) {
+                return@execute
+            }
+
+            //表示已经在显示预加载的布局了，拦截[preload]方法的重复调用
+            preLoadBuilder.showPreView()
+
+            myHandler.removePreLoadMsg()
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.REFRESH_PRE_FAILED
+            myHandler.sendMessage(msg)
         }
-
-        //表示已经在显示预加载的布局了，拦截[preload]方法的重复调用
-        preLoadBuilder.showPreView()
-
-        myHandler.removePreLoadMsg()
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.REFRESH_PRE_FAILED
-        myHandler.sendMessage(msg)
     }
 
     fun noMoreData() {
-        if (!needShowPreView) {
-            return
+        singleExecutors.execute {
+            if (!needShowPreView) {
+                return@execute
+            }
+
+            preLoadBuilder.showPreView()
+
+            myHandler.removePreLoadMsg()
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.REFRESH_PRE_NO_MORE
+            myHandler.sendMessage(msg)
         }
-
-        preLoadBuilder.showPreView()
-
-        myHandler.removePreLoadMsg()
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.REFRESH_PRE_NO_MORE
-        myHandler.sendMessage(msg)
     }
 
     fun loading() {
-        if (!needShowPreView) {
-            return
+        singleExecutors.execute {
+            if (!needShowPreView) {
+                return@execute
+            }
+
+            preLoadBuilder.showPreView()
+
+            myHandler.removePreLoadMsg()
+            val msg = myHandler.obtainMessage()
+            msg.what = ClaBaseAdapterHandler.REFRESH_PRE_LOADING
+            myHandler.sendMessage(msg)
         }
-
-        preLoadBuilder.showPreView()
-
-        myHandler.removePreLoadMsg()
-        val msg = myHandler.obtainMessage()
-        msg.what = ClaBaseAdapterHandler.REFRESH_PRE_LOADING
-        myHandler.sendMessage(msg)
     }
 
     /**
@@ -653,6 +688,10 @@ abstract class ClaBaseAdapter<T>(
      * @param payload payload
      */
     internal fun notifyVisibleItems(pos: Int, count: Int, payload: String?) {
+        if (count <= 0 || pos < 0) {
+            return
+        }
+
         val startPos = maxOf(pos, 0)
 
         val refreshPos: Int
@@ -695,11 +734,11 @@ abstract class ClaBaseAdapter<T>(
 
             else -> {
                 refreshPos = maxOf(startPos, 0)
-                refreshCount = minOf(count, showDataSize - 1)
+                refreshCount = minOf(count, showDataSize - refreshPos)
             }
         }
 
-        if (refreshCount <= 0) {
+        if (refreshCount <= 0 || showDataSize <= 0) {
             return
         }
 
