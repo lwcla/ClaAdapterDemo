@@ -366,6 +366,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 val pos = replace.pos
                 val newList = replace.list
                 val payload = replace.payload
+                val startPos = adapterPos(pos)
 
                 if (System.identityHashCode(showDataList) != System.identityHashCode(newList)) {
                     val removeList = showDataList.filterIndexed { index, t ->
@@ -377,11 +378,18 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     } else {
                         showDataList.addAll(pos, newList)
                     }
+
+                    if (removeList.size < newList.size) {
+                        // 如果被替换的集合比原来的集合大，那么就是插入了新的数据
+                        // 相当于这一页本来应该是10条数据，但是一开始只给了5条，刷新之后给了10条，这时候就相当于插入了5条数据
+                        notifyItemRangeInserted(startPos + removeList.size, newList.size - removeList.size)
+                    }
                 }
 
+
                 //刷新数据
-                val count = minOf(showDataSize - pos, newList.size)
-                notifyVisibleItems(adapterPos(pos), count, payload)
+                val count = showDataSize - startPos
+                notifyVisibleItems(startPos, count, payload)
             }
         }
     }
