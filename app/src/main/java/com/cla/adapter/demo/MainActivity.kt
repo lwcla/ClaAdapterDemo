@@ -46,8 +46,9 @@ class MainActivity : AppCompatActivity() {
     private val tvReplaceItem by lazy { findViewById<TextView>(R.id.tvReplaceItem) }
     private val tvAddToCenter by lazy { findViewById<TextView>(R.id.tvAddToCenter) }
     private val tvRemove by lazy { findViewById<TextView>(R.id.tvRemove) }
+    private val tvRefreshAllData by lazy { findViewById<TextView>(R.id.tvRefreshAllData) }
 
-    private lateinit var adapter: ClaBaseAdapter<String>
+    private lateinit var adapter: ClaBaseAdapter<ShowDataEntity>
 
     private val headerView by lazy {
         ClaRoundTextView(this).also {
@@ -116,13 +117,16 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-//        adapter = getTextAdapter()
+//        adapter = getTextAdapter().also {
+//            it.setOnLoadMoreListener { loadData() }
+//        }
         adapter = getMultiAdapter().also {
             it.setOnLoadMoreListener { loadData() }
             it.setItemChildClickListener { view, i, s ->
                 when (view.id) {
                     R.id.tv_item_1 -> Toast.makeText(this, "点击了偶数$s 位置=${i}", Toast.LENGTH_SHORT).show()
                     R.id.tv_item_2 -> Toast.makeText(this, "点击了奇数$s 位置=${i}", Toast.LENGTH_SHORT).show()
+                    R.id.tv_item_3 -> Toast.makeText(this, "点击了3的倍数$s 位置=${i}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -174,14 +178,14 @@ class MainActivity : AppCompatActivity() {
 
         tvReplaceItem.setOnClickListener {
             //替换数据
-            val list = mutableListOf<String>()
-            repeat(5) { list.add("这是被替换的数据-$it") }
-            adapter.replaceItems(100, list)
+            val list = mutableListOf<ShowDataEntity>()
+            repeat(5) { list.add(ShowDataEntity(it, "这是被替换的数据-$it")) }
+            adapter.replaceItems(10, list)
         }
 
         tvAddToCenter.setOnClickListener {
-            val list = mutableListOf<String>()
-            repeat(5) { list.add("这是被添加的数据-$it") }
+            val list = mutableListOf<ShowDataEntity>()
+            repeat(5) { list.add(ShowDataEntity(it, "这是被添加的数据-$it")) }
             adapter.addData(list, adapter.dataSize / 2)
         }
 
@@ -191,13 +195,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        tvRefreshAllData.setOnClickListener {
+            adapter.refreshAllItems("refresh all items")
+        }
+
         val manager = LinearLayoutManager(this)
 //        val manager = GridLayoutManager(this, 4)
 //        val manager = StaggeredGridLayoutManager(3, RecyclerView.VERTICAL)
 
 
+//        rvData.itemAnimator = null
         rvData.layoutManager = manager
         rvData.adapter = adapter
+        rvData.setHasFixedSize(true)
+
+//        rvData.scheduleLayoutAnimation()
+
 
         if (manager is GridLayoutManager) {
             manager.spanSizeLookup = object : SpanSizeLookup() {
@@ -211,21 +224,28 @@ class MainActivity : AppCompatActivity() {
         }
 
         refreshData()
+
+        listOf(1, 2, 3).fold(java.lang.StringBuilder()) { acc, e ->
+            acc.also { it.append(e) }
+        }.let {
+            println("MainActivity.onCreate lwl list=$it")
+        }
+
     }
 
     private fun refreshData() {
-        val list = mutableListOf<String>()
-        repeat(20) { list.add("$it") }
+        val list = mutableListOf<ShowDataEntity>()
+        repeat(20) { list.add(ShowDataEntity(it, "$it")) }
         adapter.refreshData(list)
     }
 
     private fun loadData() {
         lifecycleScope.launch {
             delay(1500)
-            val list = mutableListOf<String>()
+            val list = mutableListOf<ShowDataEntity>()
             val lastIndex = adapter.dataList.size
             repeat(20) {
-                list.add((lastIndex + it).toString())
+                list.add(ShowDataEntity(lastIndex + it, "${lastIndex + it}"))
             }
             adapter.addData(list)
         }
@@ -237,30 +257,26 @@ class MainActivity : AppCompatActivity() {
 }
 
 //************************************************item只有一种类型*******************************************************************
-class TextAdapter(context: Context) : SingleAdapterAbs<String>(context, R.layout.adapter_text) {
+class TextAdapter(context: Context) : SingleAdapterAbs<ShowDataEntity>(context, R.layout.adapter_text) {
 
-    override fun ClaBaseViewHolder<String>.initHolder() {
+    override fun ClaBaseViewHolder<ShowDataEntity>.initHolder() {
         clickBean<TextView>(R.id.tvText) {
-            Toast.makeText(context, this, Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
 
-    override fun ClaBaseViewHolder<String>.bindHolder(t: String, pos: Int, payload: String?) {
+    override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
         setText(R.id.tvText, "${t}-$pos ")
     }
 
-    override fun ClaBaseViewHolder<String>.detachedFromWindow() {
+    override fun ClaBaseViewHolder<ShowDataEntity>.detachedFromWindow() {}
 
-    }
-
-    override fun ClaBaseViewHolder<String>.attachedToWindow() {
-
-    }
+    override fun ClaBaseViewHolder<ShowDataEntity>.attachedToWindow() {}
 }
 //************************************************item只有一种类型*******************************************************************
 
 //*************************************************item有多种类型********************************************************************
-class MyAdapter(context: Context) : MultiAdapterAbs<String>(context) {
+class MyAdapter(context: Context) : MultiAdapterAbs<ShowDataEntity>(context) {
     override fun addDelegate() = listOf(
         MyAdapterDelegate1(),
         MyAdapterDelegate2(),
@@ -268,17 +284,18 @@ class MyAdapter(context: Context) : MultiAdapterAbs<String>(context) {
     )
 }
 
-class MyAdapterDelegate1 : MultiAdapterDelegateAbs<String>() {
-    override fun isForViewType(t: String, position: Int) = position % 2 == 0 && position % 3 != 0
+class MyAdapterDelegate1 : MultiAdapterDelegateAbs<ShowDataEntity>() {
+    override fun isForViewType(t: ShowDataEntity, position: Int) = t.index % 2 == 0 && t.index % 3 != 0
 
-    override fun ClaBaseViewHolder<String>.initHolder() {
+    override fun ClaBaseViewHolder<ShowDataEntity>.initHolder() {
         addChildClickListener(R.id.tv_item_1)
     }
 
     @SuppressLint("SetTextI18n")
-    override fun ClaBaseViewHolder<String>.bindHolder(t: String, pos: Int, payload: String?) {
-        val textView = itemView.covert<TextView>()
-        textView.text = "这是偶数--$t-$pos"
+    override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
+        val textView = getView<TextView>(R.id.tv_item_1)
+        textView.text = "这是偶数--${t.text}-$pos"
+
     }
 
     override fun createItemView() = ClaRoundTextView(context).also {
@@ -297,17 +314,18 @@ class MyAdapterDelegate1 : MultiAdapterDelegateAbs<String>() {
     }
 }
 
-class MyAdapterDelegate2 : MultiAdapterDelegateAbs<String>() {
-    override fun isForViewType(t: String, position: Int) = position % 2 == 1 && position % 3 != 0
+class MyAdapterDelegate2 : MultiAdapterDelegateAbs<ShowDataEntity>() {
+    override fun isForViewType(t: ShowDataEntity, position: Int) = t.index % 2 != 0 && t.index % 3 != 0
 
-    override fun ClaBaseViewHolder<String>.initHolder() {
+    override fun ClaBaseViewHolder<ShowDataEntity>.initHolder() {
         addChildClickListener(R.id.tv_item_2)
     }
 
     @SuppressLint("SetTextI18n")
-    override fun ClaBaseViewHolder<String>.bindHolder(t: String, pos: Int, payload: String?) {
-        val textView = itemView.covert<TextView>()
-        textView.text = "这是奇数-$t-$pos"
+    override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
+        val textView = getView<TextView>(R.id.tv_item_2)
+        textView.text = "这是奇数-${t.text}-$pos"
+
     }
 
     override fun createItemView() = ClaRoundTextView(context).also {
@@ -327,22 +345,22 @@ class MyAdapterDelegate2 : MultiAdapterDelegateAbs<String>() {
     }
 }
 
-class MyAdapterDelegate3 : MultiAdapterDelegateAbs<String>() {
-    override fun isForViewType(t: String, position: Int) = position % 3 == 0
+class MyAdapterDelegate3 : MultiAdapterDelegateAbs<ShowDataEntity>() {
+    override fun isForViewType(t: ShowDataEntity, position: Int) = t.index % 3 == 0
 
-    override fun ClaBaseViewHolder<String>.initHolder() {
-        addChildClickListener(R.id.tv_item_2)
+    override fun ClaBaseViewHolder<ShowDataEntity>.initHolder() {
+        addChildClickListener(R.id.tv_item_3)
     }
 
     @SuppressLint("SetTextI18n")
-    override fun ClaBaseViewHolder<String>.bindHolder(t: String, pos: Int, payload: String?) {
-        val textView = itemView.covert<TextView>()
-        textView.text = "这是3的倍数-$t-$pos"
+    override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
+        val textView = getView<TextView>(R.id.tv_item_3)
+        textView.text = "这是3的倍数-${t.text}-$pos"
     }
 
     override fun createItemView() = ClaRoundTextView(context).also {
-        it.id = R.id.tv_item_2
-        it.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        it.id = R.id.tv_item_3
+        it.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 50.dp)
         it.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         it.setTextColor(ContextCompat.getColor(context, R.color.purple_200))
         it.gravity = Gravity.CENTER
@@ -360,4 +378,7 @@ class MyAdapterDelegate3 : MultiAdapterDelegateAbs<String>() {
 //*************************************************item有多种类型********************************************************************
 
 
-
+data class ShowDataEntity(
+    val index: Int,
+    val text: String,
+)
