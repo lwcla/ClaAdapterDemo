@@ -5,7 +5,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.view.View
-import com.cla.adapter.library.ClaBaseAdapter.Companion.REFRESH_ADAPTER_EMPTY
 import com.cla.adapter.library.ClaBaseAdapter.Companion.REFRESH_ADAPTER_PRE_LOAD
 import java.lang.ref.WeakReference
 
@@ -84,84 +83,87 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     REPLACE_ITEMS -> "replace_items"
                     else -> "else"
                 }
-            }"
+            }",
         )
 
         when (msg.what) {
-
             REFRESH_DATA -> adapter.apply {
                 val data = msg.obj as? AdapterRefreshData<T>? ?: return
                 val list = data.list
 
                 val lastItemCount = itemCount
-                //刚装载adapter的时候，如果设置了loadHolder，那itemCount就不等于0，但是这个时候还是可以当成空数据来处理
-                //如果只是用showDataSize来判断的话，很有可能不准，这个时候可能正在显示emptyView
+                // 刚装载adapter的时候，如果设置了loadHolder，那itemCount就不等于0，但是这个时候还是可以当成空数据来处理
+                // 如果只是用showDataSize来判断的话，很有可能不准，这个时候可能正在显示emptyView
                 val adapterIsEmpty = lastItemCount == 0 || (lastItemCount == 1 && isLoadHolder(0))
                 val lastDataSize = showDataSize
-
-                if (System.identityHashCode(showDataList) != System.identityHashCode(list)) {
-                    showDataList.clear()
-                    showDataList.addAll(list)
-                }
+                val newDataSize = list.size
 
                 preLoadBuilder.let {
-                    //设置预加载偏移量，默认是到列表的二分之一的时候开始加载下一页的数据
-                    it.preloadItemCount = it.preCount.invoke(showDataSize)
+                    // 设置预加载偏移量，默认是到列表的二分之一的时候开始加载下一页的数据
+                    it.preloadItemCount = it.preCount.invoke(newDataSize)
                     it.preloadClose = false
                     it.reset()
                 }
 
-                //如果adapter在刷新数据之前就已经是空的，那就刷新所有
+                fun setList() {
+                    if (System.identityHashCode(showDataList) != System.identityHashCode(list)) {
+                        showDataList.clear()
+                        showDataList.addAll(list)
+                    }
+                }
+
+                // 如果adapter在刷新数据之前就已经是空的，那就刷新所有
                 if (adapterIsEmpty) {
+                    setList()
                     notifyDataSetChanged()
                     restoreState.value
                     return
                 }
 
-                //先滚动到第一个的位置，这样即使列表已经滚动到很后面的位置了，在删除数据的时候也看不到删除的过程
+                // 先滚动到第一个的位置，这样即使列表已经滚动到很后面的位置了，在删除数据的时候也看不到删除的过程
                 if (data.scrollToTop) {
                     val pos = if (!data.scrollToTopIncludeHeader) adapterPos(0) else 0
                     scrollToPosWithOffset(pos, data.scrollToTopOffset)
                 }
 
-                //不要刷新headerView和footerView
-                //如果headerView是webView，那么notifyDataSetChanged会导致WebView闪屏
+                // 不要刷新headerView和footerView
+                // 如果headerView是webView，那么notifyDataSetChanged会导致WebView闪屏
                 val startPos = adapterPos(0)
 
-                val removeCount = lastDataSize - showDataSize
-                val deleteStartPos = maxOf(startPos + showDataSize, 0)
+                val removeCount = lastDataSize - newDataSize
+                val deleteStartPos = maxOf(startPos + newDataSize, 0)
 
+                println("ClaBaseAdapterHandler.handleMessage lwl removeCount=$removeCount lastDataSize=$lastDataSize showDataSize=$showDataSize")
                 if (removeCount > 0) {
-                    //从后面删除多余的数据
-                    //如果从前面删的话，刷新数据的时候能明显看到数据被删除的过程
+                    // 从后面删除多余的数据
+                    // 如果从前面删的话，刷新数据的时候能明显看到数据被删除的过程
+                    setList()
                     notifyItemRangeRemoved(deleteStartPos, removeCount)
                 } else {
-                    if (isShowEmpty && lastDataSize == 0) {
-                        //如果当前显示的是emptyView，新添加的数据不为空的情况下，需要先调用notifyItemRemoved方法
-                        //否则在notifyItemRangeInserted会去检查数据下标，然后报数组越界的错
+                    if (isShowEmpty && list.isNotEmpty()) {
+                        // 如果当前显示的是emptyView，新添加的数据不为空的情况下，需要先调用notifyItemRemoved方法
+                        // 否则在notifyItemRangeInserted会去检查数据下标，然后报数组越界的错
                         val emptyPos = findPositionByType(ClaBaseAdapter.EMPTY_VIEW)
                         if (emptyPos >= 0) {
                             notifyItemRemoved(emptyPos)
-                            notifyVisibleItems(emptyPos, itemCount, REFRESH_ADAPTER_EMPTY)
                         }
                     }
 
-                    val addCount = showDataSize - lastDataSize
+                    setList()
+                    val addCount = newDataSize - lastDataSize
                     val addStartPos = maxOf(startPos + lastDataSize, 0)
 
                     if (addCount > 0) {
-                        //从后面添加新的数据
+                        // 从后面添加新的数据
                         notifyItemRangeInserted(addStartPos, addCount)
                     }
                 }
 
-
-                //刷新数据item
+                // 刷新数据item
                 notifyVisibleItems(startPos, showDataSize, "")
-
-                //刷新预加载view
+                // 刷新预加载view
                 notifyPreLoad()
-                //恢复状态
+                // 恢复状态
                 restoreState.value
             }
 
@@ -174,28 +176,27 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 }
 
                 if (isShowEmpty && list.isNotEmpty()) {
-                    //如果当前显示的是emptyView，新添加的数据不为空的情况下，需要先调用notifyItemRemoved方法
-                    //否则在notifyItemRangeInserted会去检查数据下标，然后报数组越界的错
+                    // 如果当前显示的是emptyView，新添加的数据不为空的情况下，需要先调用notifyItemRemoved方法
+                    // 否则在notifyItemRangeInserted会去检查数据下标，然后报数组越界的错
                     val emptyPos = findPositionByType(ClaBaseAdapter.EMPTY_VIEW)
                     if (emptyPos >= 0) {
                         notifyItemRemoved(emptyPos)
-                        notifyVisibleItems(emptyPos, itemCount, REFRESH_ADAPTER_EMPTY)
                     }
                 }
 
                 val addIndex = if (index > showDataSize) showDataSize else index
+                val aPos = adapterPos(addIndex)
+                val count = list.size
+
                 showDataList.addAll(addIndex, list)
                 if (addToEnd) {
                     preLoadBuilder.reset()
                 }
 
-                val aPos = adapterPos(addIndex)
-                val count = list.size
-
                 notifyItemRangeInserted(aPos, count)
-                //刷新数据item
+                // 刷新数据item
                 notifyVisibleItems(aPos, showDataSize - aPos, "")
-                //刷新预加载view
+                // 刷新预加载view
                 notifyPreLoad()
             }
 
@@ -234,11 +235,11 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 val pos = adapterPos(startPos)
                 val count = minOf(showDataSize - pos, item.count)
                 val payload = item.payload
-                //刷新数据
+                // 刷新数据
                 notifyVisibleItems(pos, count, payload)
             }
 
-            //刷新预加载view
+            // 刷新预加载view
             REFRESH_PRE_FAILED -> adapter.apply {
                 if (!needShowPreView) {
                     return
@@ -248,9 +249,9 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     return
                 }
 
-                //handler中再设置一次，是因为addData之中会重置preLoadBuilder的状态
-                //那先addData之后再loadFailed，preLoadBuilder在addData被重置成初始状态了。failed状态就一直都显示不出来
-                //handler是按顺序执行的，倒是不用担心这个状态会冲掉后面设置的状态
+                // handler中再设置一次，是因为addData之中会重置preLoadBuilder的状态
+                // 那先addData之后再loadFailed，preLoadBuilder在addData被重置成初始状态了。failed状态就一直都显示不出来
+                // handler是按顺序执行的，倒是不用担心这个状态会冲掉后面设置的状态
                 preLoadBuilder.loadFailed()
                 val aPos = findPositionByType(ClaBaseAdapter.LOADING_VIEW)
                 if (aPos < 0) {
@@ -259,7 +260,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 notifyPreLoad()
             }
 
-            //刷新预加载view
+            // 刷新预加载view
             REFRESH_PRE_NO_MORE -> adapter.apply {
                 if (!needShowPreView) {
                     return
@@ -277,7 +278,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 notifyPreLoad()
             }
 
-            //刷新预加载view
+            // 刷新预加载view
             REFRESH_PRE_LOADING -> adapter.apply {
                 if (!needShowPreView) {
                     return
@@ -296,7 +297,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 notifyPreLoad()
             }
 
-            //关闭预加载
+            // 关闭预加载
             CLOSE_PRE_LOAD -> adapter.apply {
                 if (!needShowPreView) {
                     return
@@ -378,16 +379,9 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     } else {
                         showDataList.addAll(pos, newList)
                     }
-
-                    if (removeList.size < newList.size) {
-                        // 如果被替换的集合比原来的集合大，那么就是插入了新的数据
-                        // 相当于这一页本来应该是10条数据，但是一开始只给了5条，刷新之后给了10条，这时候就相当于插入了5条数据
-                        notifyItemRangeInserted(startPos + removeList.size, newList.size - removeList.size)
-                    }
                 }
 
-
-                //刷新数据
+                // 刷新数据
                 val count = showDataSize - startPos
                 notifyVisibleItems(startPos, count, payload)
             }

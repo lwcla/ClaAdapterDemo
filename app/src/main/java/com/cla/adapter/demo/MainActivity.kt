@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.setMargins
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
+import androidx.lifecycle.ViewModelProviders
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup
@@ -34,6 +35,8 @@ internal val Int.dp: Int
     }
 
 class MainActivity : AppCompatActivity() {
+
+    private val mainVm by lazy { ViewModelProviders.of(this).get(MainVm::class.java) }
 
     private val rvData by lazy { findViewById<RecyclerView>(R.id.rvData) }
     private val tvRefreshData by lazy { findViewById<TextView>(R.id.tvRefreshData) }
@@ -113,6 +116,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val showList get() = mainVm.showList
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -124,9 +129,9 @@ class MainActivity : AppCompatActivity() {
             it.setOnLoadMoreListener { loadData() }
             it.setItemChildClickListener { view, i, s ->
                 when (view.id) {
-                    R.id.tv_item_1 -> Toast.makeText(this, "点击了偶数$s 位置=${i}", Toast.LENGTH_SHORT).show()
-                    R.id.tv_item_2 -> Toast.makeText(this, "点击了奇数$s 位置=${i}", Toast.LENGTH_SHORT).show()
-                    R.id.tv_item_3 -> Toast.makeText(this, "点击了3的倍数$s 位置=${i}", Toast.LENGTH_SHORT).show()
+                    R.id.tv_item_1 -> Toast.makeText(this, "点击了偶数$s 位置=$i", Toast.LENGTH_SHORT).show()
+                    R.id.tv_item_2 -> Toast.makeText(this, "点击了奇数$s 位置=$i", Toast.LENGTH_SHORT).show()
+                    R.id.tv_item_3 -> Toast.makeText(this, "点击了3的倍数$s 位置=$i", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -138,22 +143,22 @@ class MainActivity : AppCompatActivity() {
         adapter.showFooterView = true
 
         tvRefreshData.setOnClickListener {
-            //刷新数据
+            // 刷新数据
             refreshData()
         }
 
         tvShowHeaderView.setOnClickListener {
-            //显示headerView
+            // 显示headerView
             adapter.showHeaderView = true
         }
 
         tvHideHeaderView.setOnClickListener {
-            //隐藏headerView
+            // 隐藏headerView
             adapter.showHeaderView = false
         }
 
         tvUpdateHeaderView.setOnClickListener {
-            //修改headerView
+            // 修改headerView
             headerView.text = "headerView被修改了"
             headerView.updateLayoutParams<MarginLayoutParams> {
                 height = 150.dp
@@ -161,23 +166,23 @@ class MainActivity : AppCompatActivity() {
         }
 
         tvShowEmptyView.setOnClickListener {
-            //显示emptyView
-            //当把adapter中的集合设置为空时，就会显示emptyView；当adapter中有数据之后，emptyView会被移除
+            // 显示emptyView
+            // 当把adapter中的集合设置为空时，就会显示emptyView；当adapter中有数据之后，emptyView会被移除
             adapter.refreshData(emptyList())
         }
 
         tvShowFooterView.setOnClickListener {
-            //显示footerView
+            // 显示footerView
             adapter.showFooterView = true
         }
 
         tvHideFooterView.setOnClickListener {
-            //隐藏footerView
+            // 隐藏footerView
             adapter.showFooterView = false
         }
 
         tvReplaceItem.setOnClickListener {
-            //替换数据
+            // 替换数据
             val list = mutableListOf<ShowDataEntity>()
             repeat(5) { list.add(ShowDataEntity(it, "这是被替换的数据-$it")) }
             adapter.replaceItems(10, list)
@@ -203,14 +208,12 @@ class MainActivity : AppCompatActivity() {
 //        val manager = GridLayoutManager(this, 4)
 //        val manager = StaggeredGridLayoutManager(3, RecyclerView.VERTICAL)
 
-
 //        rvData.itemAnimator = null
         rvData.layoutManager = manager
         rvData.adapter = adapter
         rvData.setHasFixedSize(true)
 
 //        rvData.scheduleLayoutAnimation()
-
 
         if (manager is GridLayoutManager) {
             manager.spanSizeLookup = object : SpanSizeLookup() {
@@ -223,20 +226,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        refreshData()
-
-        listOf(1, 2, 3).fold(java.lang.StringBuilder()) { acc, e ->
-            acc.also { it.append(e) }
-        }.let {
-            println("MainActivity.onCreate lwl list=$it")
+        println("MainActivity.onCreate lwl showList=${System.identityHashCode(showList)}")
+        val isEmpty = showList.isEmpty()
+        if (isEmpty) {
+            repeat(20) { showList.add(ShowDataEntity(it, "$it")) }
         }
-
+        adapter.refreshData(showList, scrollToTop = isEmpty)
+//        refreshData()
     }
 
     private fun refreshData() {
-        val list = mutableListOf<ShowDataEntity>()
-        repeat(20) { list.add(ShowDataEntity(it, "$it")) }
-        adapter.refreshData(list)
+        showList.clear()
+        repeat(20) { showList.add(ShowDataEntity(it, "$it")) }
+        adapter.refreshData(showList, scrollToTop = true)
     }
 
     private fun loadData() {
@@ -247,6 +249,7 @@ class MainActivity : AppCompatActivity() {
             repeat(20) {
                 list.add(ShowDataEntity(lastIndex + it, "${lastIndex + it}"))
             }
+            showList.addAll(list)
             adapter.addData(list)
         }
     }
@@ -256,7 +259,7 @@ class MainActivity : AppCompatActivity() {
     private fun getMultiAdapter() = MyAdapter(this)
 }
 
-//************************************************item只有一种类型*******************************************************************
+// ************************************************item只有一种类型*******************************************************************
 class TextAdapter(context: Context) : SingleAdapterAbs<ShowDataEntity>(context, R.layout.adapter_text) {
 
     override fun ClaBaseViewHolder<ShowDataEntity>.initHolder() {
@@ -266,16 +269,16 @@ class TextAdapter(context: Context) : SingleAdapterAbs<ShowDataEntity>(context, 
     }
 
     override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
-        setText(R.id.tvText, "${t}-$pos ")
+        setText(R.id.tvText, "$t-$pos ")
     }
 
     override fun ClaBaseViewHolder<ShowDataEntity>.detachedFromWindow() {}
 
     override fun ClaBaseViewHolder<ShowDataEntity>.attachedToWindow() {}
 }
-//************************************************item只有一种类型*******************************************************************
+// ************************************************item只有一种类型*******************************************************************
 
-//*************************************************item有多种类型********************************************************************
+// *************************************************item有多种类型********************************************************************
 class MyAdapter(context: Context) : MultiAdapterAbs<ShowDataEntity>(context) {
     override fun addDelegate() = listOf(
         MyAdapterDelegate1(),
@@ -295,7 +298,6 @@ class MyAdapterDelegate1 : MultiAdapterDelegateAbs<ShowDataEntity>() {
     override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
         val textView = getView<TextView>(R.id.tv_item_1)
         textView.text = "这是偶数--${t.text}-$pos"
-
     }
 
     override fun createItemView() = ClaRoundTextView(context).also {
@@ -325,7 +327,6 @@ class MyAdapterDelegate2 : MultiAdapterDelegateAbs<ShowDataEntity>() {
     override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
         val textView = getView<TextView>(R.id.tv_item_2)
         textView.text = "这是奇数-${t.text}-$pos"
-
     }
 
     override fun createItemView() = ClaRoundTextView(context).also {
@@ -375,8 +376,7 @@ class MyAdapterDelegate3 : MultiAdapterDelegateAbs<ShowDataEntity>() {
     }
 }
 
-//*************************************************item有多种类型********************************************************************
-
+// *************************************************item有多种类型********************************************************************
 
 data class ShowDataEntity(
     val index: Int,
