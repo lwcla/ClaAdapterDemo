@@ -231,7 +231,7 @@ class MainActivity : AppCompatActivity() {
         if (isEmpty) {
             repeat(20) { showList.add(ShowDataEntity(it, "$it")) }
         }
-        adapter.refreshData(showList, scrollToTop = isEmpty)
+        adapter.refreshData(showList)
 //        refreshData()
     }
 

@@ -271,7 +271,7 @@ abstract class ClaBaseAdapter<T>(
     fun isEmptyHolder(pos: Int) = isShowEmpty && pos == emptyPos
 
     open fun refreshData(list: List<T>) {
-        refreshData(list, scrollToTop = true)
+        refreshData(list, scrollToTop = false)
     }
 
     open fun refreshData(list: List<T>, scrollToTop: Boolean) {
@@ -643,7 +643,6 @@ abstract class ClaBaseAdapter<T>(
     internal fun findPositionByType(type: Int): Int {
         if (type == EMPTY_VIEW) {
             val viewType = getItemViewType(emptyPos)
-            println("ClaBaseAdapter.findPositionByType lwl emptyPos=$emptyPos viewType = $viewType LOADING_VIEW=$LOADING_VIEW HEADER_VIEW=$HEADER_VIEW FOOTER_VIEW=$FOOTER_VIEW EMPTY_VIEW=$EMPTY_VIEW")
             if (viewType == type) {
                 return emptyPos
             }
@@ -704,7 +703,6 @@ abstract class ClaBaseAdapter<T>(
      * @param payload payload
      */
     internal fun notifyVisibleItems(pos: Int, count: Int, payload: String?) {
-        println("ClaBaseAdapter.notifyVisibleItems lwl pos=$pos count=$count payload=$payload")
         if (count <= 0 || pos < 0) {
             return
         }
@@ -754,7 +752,6 @@ abstract class ClaBaseAdapter<T>(
             }
         }
 
-        println("ClaBaseAdapter.notifyVisibleItems lwl refreshPos=$refreshPos refreshCount=$refreshCount showDataSize=$showDataSize payload=$payload")
         if (refreshCount <= 0 || showDataSize <= 0) {
             return
         }
@@ -817,12 +814,10 @@ abstract class ClaBaseAdapter<T>(
         }
 
         var dataSize = showDataSize
-        println("ClaBaseAdapter.getItemViewType lwl position=$position dataSize=$dataSize isShowHeader=$isShowHeader")
         if (isShowHeader) {
             dataSize++
         }
 
-        println("ClaBaseAdapter.getItemViewType lwl isShowEmpty=$isShowEmpty")
         if (isShowEmpty) {
             dataSize++
         }

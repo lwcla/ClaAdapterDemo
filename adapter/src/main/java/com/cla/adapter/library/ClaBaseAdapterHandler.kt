@@ -59,6 +59,8 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
 
     private val ref = WeakReference(adapter)
 
+    private var isFirstShowData = true
+
     @SuppressLint("NotifyDataSetChanged")
     override fun handleMessage(msg: Message) {
         val adapter = ref.get() ?: return
@@ -91,10 +93,6 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 val data = msg.obj as? AdapterRefreshData<T>? ?: return
                 val list = data.list
 
-                val lastItemCount = itemCount
-                // 刚装载adapter的时候，如果设置了loadHolder，那itemCount就不等于0，但是这个时候还是可以当成空数据来处理
-                // 如果只是用showDataSize来判断的话，很有可能不准，这个时候可能正在显示emptyView
-                val adapterIsEmpty = lastItemCount == 0 || (lastItemCount == 1 && isLoadHolder(0))
                 val lastDataSize = showDataSize
                 val newDataSize = list.size
 
@@ -112,8 +110,9 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     }
                 }
 
-                // 如果adapter在刷新数据之前就已经是空的，那就刷新所有
-                if (adapterIsEmpty) {
+                // 第一次显示时，直接notifyDataSetChanged
+                if (isFirstShowData) {
+                    isFirstShowData = false
                     setList()
                     notifyDataSetChanged()
                     restoreState.value
@@ -133,7 +132,6 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 val removeCount = lastDataSize - newDataSize
                 val deleteStartPos = maxOf(startPos + newDataSize, 0)
 
-                println("ClaBaseAdapterHandler.handleMessage lwl removeCount=$removeCount lastDataSize=$lastDataSize showDataSize=$showDataSize")
                 if (removeCount > 0) {
                     // 从后面删除多余的数据
                     // 如果从前面删的话，刷新数据的时候能明显看到数据被删除的过程
