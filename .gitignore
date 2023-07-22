@@ -84,3 +84,4 @@ lint/outputs/
 lint/tmp/
 # lint/reports/
 /.idea/kotlinc.xml
+/.idea/git_toolbox_prj.xml

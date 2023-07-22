@@ -377,6 +377,11 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     } else {
                         showDataList.addAll(pos, newList)
                     }
+
+                    val addCount = newList.size - removeList.size
+                    if (addCount > 0) {
+                        notifyItemRangeInserted(startPos, addCount)
+                    }
                 }
 
                 // 刷新数据

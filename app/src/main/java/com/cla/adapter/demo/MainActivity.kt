@@ -184,7 +184,7 @@ class MainActivity : AppCompatActivity() {
         tvReplaceItem.setOnClickListener {
             // 替换数据
             val list = mutableListOf<ShowDataEntity>()
-            repeat(5) { list.add(ShowDataEntity(it, "这是被替换的数据-$it")) }
+            repeat(100) { list.add(ShowDataEntity(it, "这是被替换的数据-$it")) }
             adapter.replaceItems(10, list)
         }
 
