@@ -3,22 +3,26 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
+    android:id="@+id/clRoot"
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:id="@+id/appBarLayout"
         android:background="@color/transparent"
         app:elevation="1dp">
 
         <com.google.android.material.appbar.CollapsingToolbarLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:id="@+id/collapsingToolbarLayout"
             app:layout_scrollFlags="scroll|enterAlways">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
+                android:id="@+id/clHeader"
                 android:layout_height="wrap_content"
                 android:paddingVertical="10dp">
 
@@ -154,10 +158,22 @@
                     app:cla_normal_radius="4dp"
                     app:cla_view_changeAlpha_whenPress="true" />
 
+                <cn.cla.round.view.widget.ClaRoundTextView
+                    android:id="@+id/tvAddToFirst"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="7dp"
+                    android:text="添加到第一个"
+                    app:cla_normal_borderColor="@color/purple_700"
+                    app:cla_normal_borderWidth="1dp"
+                    app:cla_normal_radius="4dp"
+                    app:cla_view_changeAlpha_whenPress="true" />
+
                 <androidx.constraintlayout.helper.widget.Flow
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    app:constraint_referenced_ids="tvRefreshData,tvShowHeaderView,tvHideHeaderView,tvUpdateHeaderView,tvShowEmptyView,tvShowFooterView,tvHideFooterView,tvReplaceItem,tvAddToCenter,tvRemove,tvRefreshAllData"
+                    app:constraint_referenced_ids="tvRefreshData,tvShowHeaderView,tvHideHeaderView,tvUpdateHeaderView,tvShowEmptyView,tvShowFooterView,tvHideFooterView,tvReplaceItem,tvAddToCenter,tvRemove,tvRefreshAllData,tvAddToFirst"
                     app:flow_horizontalGap="10dp"
                     app:flow_horizontalStyle="packed"
                     app:flow_verticalGap="10dp"

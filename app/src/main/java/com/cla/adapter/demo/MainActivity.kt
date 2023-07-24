@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private val tvAddToCenter by lazy { findViewById<TextView>(R.id.tvAddToCenter) }
     private val tvRemove by lazy { findViewById<TextView>(R.id.tvRemove) }
     private val tvRefreshAllData by lazy { findViewById<TextView>(R.id.tvRefreshAllData) }
+    private val tvAddToFirst by lazy { findViewById<TextView>(R.id.tvAddToFirst) }
 
     private lateinit var adapter: ClaBaseAdapter<ShowDataEntity>
 
@@ -76,7 +77,7 @@ class MainActivity : AppCompatActivity() {
 
     private val emptyView by lazy {
         ClaRoundTextView(this).also {
-            it.layoutParams = ConstraintLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 300.dp)
+            it.layoutParams = ConstraintLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 700.dp)
             it.updateLayoutParams<MarginLayoutParams> {
                 setMargins(10.dp)
             }
@@ -149,6 +150,7 @@ class MainActivity : AppCompatActivity() {
 
         tvShowHeaderView.setOnClickListener {
             // 显示headerView
+//            adapter.headerView = headerView
             adapter.showHeaderView = true
         }
 
@@ -202,6 +204,10 @@ class MainActivity : AppCompatActivity() {
 
         tvRefreshAllData.setOnClickListener {
             adapter.refreshAllItems("refresh all items")
+        }
+
+        tvAddToFirst.setOnClickListener {
+            adapter.addData(ShowDataEntity(0, "这是添加到第一个位置的数据-0"), 0)
         }
 
         val manager = LinearLayoutManager(this)

@@ -192,8 +192,8 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 }
 
                 notifyItemRangeInserted(aPos, count)
-                // 刷新数据item
                 notifyVisibleItems(aPos, showDataSize - aPos, "")
+                // 刷新数据item
                 // 刷新预加载view
                 notifyPreLoad()
             }
