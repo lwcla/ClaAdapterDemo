@@ -295,9 +295,12 @@ abstract class ClaBaseAdapter<T>(
      */
     open fun refreshData(list: List<T>, scrollToTop: Boolean, scrollToTopIncludeHeader: Boolean, scrollToTopOffset: Int) {
         singleThread.execute {
-            if (System.identityHashCode(dataList) != System.identityHashCode(list)) {
+            // list是ui传过来的对象，遇到一个情况，在handler中刷新数据时，list中又被添加了数据，这就导致showDataList和dataList中的数据不一致了
+            // 所以这里需要复制一份数据，避免在handler中刷新数据时，list中又被添加了数据
+            val listCopy = list.toList()
+            if (System.identityHashCode(dataList) != System.identityHashCode(listCopy)) {
                 dataList.clear()
-                dataList.addAll(list)
+                dataList.addAll(listCopy)
             }
             hasSetListData = true
 
@@ -317,7 +320,7 @@ abstract class ClaBaseAdapter<T>(
 
             val msg = myHandler.obtainMessage()
             msg.what = ClaBaseAdapterHandler.REFRESH_DATA
-            msg.obj = AdapterRefreshData(list, scrollToTop, scrollToTopIncludeHeader, scrollToTopOffset)
+            msg.obj = AdapterRefreshData(listCopy, scrollToTop, scrollToTopIncludeHeader, scrollToTopOffset)
             myHandler.sendMessage(msg)
         }
     }
@@ -328,46 +331,73 @@ abstract class ClaBaseAdapter<T>(
      */
     open fun refreshAllItems(payload: String? = null) {
         singleThread.execute {
-            refreshItems(0, dataSize, payload)
+            refreshItems(index = { 0 }, dataSize, payload)
+        }
+    }
+
+    /**
+     * 添加或者替换数据
+     * @param t T
+     * @param index 添加或者替换的位置
+     * @param isReplace 替换还是添加
+     * @param filter 是否需要执行这次操作,在singleThread中执行过滤的操作，这样才能保证拿到的[dataList]中的下标和数据是正确的
+     */
+    open fun addOrReplace(t: T, index: () -> Int, isReplace: () -> Boolean, filter: () -> Boolean = { true }) {
+        singleThread.execute {
+            if (!filter()) {
+                return@execute
+            }
+
+            val replace = isReplace()
+            if (replace) {
+                replaceItem(index, t)
+            } else {
+                addData(t, index)
+            }
         }
     }
 
     /** 添加数据 */
     open fun addData(t: T) {
         singleThread.execute {
-            addData(listOf(t), dataSize)
+            addData(listOf(t)) { dataSize }
         }
     }
 
     /** 添加数据 */
-    open fun addData(list: List<T>) {
-        singleThread.execute {
-            addData(list, dataSize)
-        }
-    }
-
-    /** 添加数据 */
-    open fun addData(t: T, index: Int) {
+    open fun addData(t: T, index: () -> Int) {
         singleThread.execute {
             addData(listOf(t), index)
         }
     }
 
     /** 添加数据 */
-    open fun addData(list: List<T>, index: Int) {
+    open fun addData(list: List<T>) {
         singleThread.execute {
+            addData(list) { dataSize }
+        }
+    }
+
+    /** 添加数据 */
+    open fun addData(list: List<T>, index: () -> Int) {
+        singleThread.execute {
+            val pos = index()
+            if (pos < 0) {
+                return@execute
+            }
+
             if (dataList.isEmpty()) {
                 refreshData(list)
                 return@execute
             }
 
-            val addToEnd = if (index == dataSize) 1 else 0
-            dataList.addAll(index, list)
+            val addToEnd = if (pos == dataSize) 1 else 0
+            dataList.addAll(pos, list)
             hasSetListData = true
 
             val msg = myHandler.obtainMessage()
             msg.what = ClaBaseAdapterHandler.ADD_DATA
-            msg.arg1 = index
+            msg.arg1 = pos
             msg.arg2 = addToEnd
             msg.obj = list
             myHandler.sendMessage(msg)
@@ -391,14 +421,16 @@ abstract class ClaBaseAdapter<T>(
     /**
      * 删除数据
      */
-    open fun removeData(pos: Int) {
+    open fun removeData(index: () -> Int) {
         singleThread.execute {
+            val pos = index()
             dataList.getOrNull(pos)?.let { removeData(it) }
         }
     }
 
-    open fun refreshItem(pos: Int, payload: String? = null) {
+    open fun refreshItem(index: () -> Int, payload: String? = null) {
         singleThread.execute {
+            val pos = index()
             dataList.getOrNull(pos)?.let { refreshItem(it, payload) }
         }
     }
@@ -438,8 +470,9 @@ abstract class ClaBaseAdapter<T>(
      * @param count Int
      * @param payload String?
      */
-    open fun refreshItems(pos: Int, count: Int, payload: String? = null) {
+    open fun refreshItems(index: () -> Int, count: Int, payload: String? = null) {
         singleThread.execute {
+            val pos = index()
             dataList.getOrNull(pos)?.let { refreshItems(it, count, payload) }
         }
     }
@@ -469,9 +502,9 @@ abstract class ClaBaseAdapter<T>(
      * @param t 替换的数据
      * @param payload String?
      */
-    open fun replaceItem(pos: Int, t: T, payload: String? = null) {
+    open fun replaceItem(index: () -> Int, t: T, payload: String? = null) {
         singleThread.execute {
-            replaceItems(pos, listOf(t), payload)
+            replaceItems(index = index, listOf(t), payload)
         }
     }
 
@@ -481,9 +514,14 @@ abstract class ClaBaseAdapter<T>(
      * @param newList 替换的数据
      * @param payload String?
      */
-    open fun replaceItems(pos: Int, newList: List<T>, payload: String? = null) {
+    open fun replaceItems(index: () -> Int, newList: List<T>, payload: String? = null) {
         singleThread.execute {
             if (dataList.isEmpty()) {
+                return@execute
+            }
+
+            val pos = index()
+            if (pos < 0) {
                 return@execute
             }
 
