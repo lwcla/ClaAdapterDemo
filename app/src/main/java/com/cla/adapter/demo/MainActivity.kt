@@ -6,13 +6,17 @@ import android.content.res.Resources
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.MarginLayoutParams
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
+import androidx.core.view.children
 import androidx.core.view.setMargins
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
@@ -22,10 +26,15 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.RecyclerView.OnScrollListener
 import cn.cla.round.view.widget.ClaRoundTextView
 import com.cla.adapter.library.*
 import com.cla.adapter.library.holder.ClaBaseViewHolder
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
 internal val Int.dp: Int
@@ -38,6 +47,7 @@ class MainActivity : AppCompatActivity() {
 
     private val mainVm by lazy { ViewModelProviders.of(this).get(MainVm::class.java) }
 
+    private val clRoot by lazy { findViewById<CoordinatorLayout>(R.id.clRoot) }
     private val rvData by lazy { findViewById<RecyclerView>(R.id.rvData) }
     private val tvRefreshData by lazy { findViewById<TextView>(R.id.tvRefreshData) }
     private val tvShowHeaderView by lazy { findViewById<TextView>(R.id.tvShowHeaderView) }
@@ -70,7 +80,8 @@ class MainActivity : AppCompatActivity() {
             }
             it.changeAlphaWhenPress = true
             it.setOnClickListener {
-                Toast.makeText(this, "点击headerView", Toast.LENGTH_SHORT).show()
+//                Toast.makeText(this, "点击headerView", Toast.LENGTH_SHORT).show()
+                ScrollAty.launch(this)
             }
         }
     }
@@ -187,13 +198,13 @@ class MainActivity : AppCompatActivity() {
             // 替换数据
             val list = mutableListOf<ShowDataEntity>()
             repeat(100) { list.add(ShowDataEntity(it, "这是被替换的数据-$it")) }
-            adapter.replaceItems(10, list)
+            adapter.replaceItems({ 10 }, list)
         }
 
         tvAddToCenter.setOnClickListener {
             val list = mutableListOf<ShowDataEntity>()
             repeat(5) { list.add(ShowDataEntity(it, "这是被添加的数据-$it")) }
-            adapter.addData(list, adapter.dataSize / 2)
+            adapter.addData(list) { adapter.dataSize / 2 }
         }
 
         tvRemove.setOnClickListener {
@@ -207,7 +218,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         tvAddToFirst.setOnClickListener {
-            adapter.addData(ShowDataEntity(0, "这是添加到第一个位置的数据-0"), 0)
+            adapter.addData(ShowDataEntity(0, "这是添加到第一个位置的数据-0")) { 0 }
         }
 
         val manager = LinearLayoutManager(this)
@@ -263,6 +274,89 @@ class MainActivity : AppCompatActivity() {
     private fun getTextAdapter() = TextAdapter(this)
 
     private fun getMultiAdapter() = MyAdapter(this)
+
+    private var scrollListener: OnScrollListener? = null
+
+    private val distanceState = MutableStateFlow<Int?>(null)
+
+    override fun onStart() {
+        super.onStart()
+        lifecycleScope.launch(Dispatchers.Default) {
+            distanceState.filterNotNull().debounce(200).collect { lastChildY ->
+                val child = rvData.children.firstOrNull() ?: return@collect
+                val local = IntArray(2)
+                child.getLocationOnScreen(local)
+                val childY = local[1]
+                println("MainActivity.distanceState lwl childY=$childY lastChildY=$lastChildY")
+                if (lastChildY == childY) {
+                    println("MainActivity.distanceState lwl 滑动停止")
+                } else {
+                    println("MainActivity.distanceState lwl 还在滑动")
+                    distanceState.emit(childY)
+                }
+            }
+        }
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        when (ev?.action) {
+            MotionEvent.ACTION_DOWN -> {
+                val x = ev.rawX.toInt()
+                val y = ev.rawY.toInt()
+                val findView = findViewByCoordinates(clRoot, x, y)
+                println("MainActivity.dispatchTouchEvent lwl findView=$findView")
+                findView?.let { view ->
+                    lifecycleScope.launch {
+                        distanceState.emit(0)
+                    }
+
+
+//                    scrollListener?.let { listener -> view.removeOnScrollListener(listener) }
+//                    if (scrollListener == null) {
+//                        scrollListener = object : OnScrollListener() {
+//
+//                            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+//                                super.onScrollStateChanged(recyclerView, newState)
+//                                println("MainActivity.onScrollStateChanged lwl newState=$newState")
+//                            }
+//
+//                            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+//                                super.onScrolled(recyclerView, dx, dy)
+//                                println("MainActivity.onScrolled lwl dy=$dy")
+//                            }
+//                        }
+//                    }
+//                    view.addOnScrollListener(scrollListener!!)
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun findViewByCoordinates(view: View, x: Int, y: Int): RecyclerView? {
+        if (view is ViewGroup) {
+            val viewGroup = view
+            for (i in 0 until viewGroup.childCount) {
+                val child = viewGroup.getChildAt(i)
+                if (isPointInsideView(x, y, child)) {
+                    println("MainActivity.findViewByCoordinates lwl child=$child")
+                    if (child is RecyclerView) return child
+                    return (child as? ViewGroup)?.let { findViewByCoordinates(it, x, y) }
+                }
+            }
+        }
+        return null
+    }
+
+    private fun isPointInsideView(x: Int, y: Int, view: View): Boolean {
+        val location = IntArray(2)
+        view.getLocationOnScreen(location)
+        val viewX = location[0]
+        val viewY = location[1]
+        val viewWidth = view.width
+        val viewHeight = view.height
+        return x >= viewX && x <= (viewX + viewWidth) && y >= viewY && y <= (viewY + viewHeight)
+    }
 }
 
 // ************************************************item只有一种类型*******************************************************************
