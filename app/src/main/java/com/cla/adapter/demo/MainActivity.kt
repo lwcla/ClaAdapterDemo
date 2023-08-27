@@ -6,8 +6,6 @@ import android.content.res.Resources
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.MotionEvent
-import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.MarginLayoutParams
 import android.widget.TextView
@@ -16,7 +14,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
-import androidx.core.view.children
 import androidx.core.view.setMargins
 import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
@@ -26,15 +23,10 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.RecyclerView.OnScrollListener
 import cn.cla.round.view.widget.ClaRoundTextView
 import com.cla.adapter.library.*
 import com.cla.adapter.library.holder.ClaBaseViewHolder
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
 internal val Int.dp: Int
@@ -80,8 +72,7 @@ class MainActivity : AppCompatActivity() {
             }
             it.changeAlphaWhenPress = true
             it.setOnClickListener {
-//                Toast.makeText(this, "点击headerView", Toast.LENGTH_SHORT).show()
-                ScrollAty.launch(this)
+                Toast.makeText(this, "点击headerView", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -130,6 +121,11 @@ class MainActivity : AppCompatActivity() {
 
     private val showList get() = mainVm.showList
 
+    private fun toast(text: String) {
+        println("MainActivity.toast lwl text=$text")
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -141,9 +137,9 @@ class MainActivity : AppCompatActivity() {
             it.setOnLoadMoreListener { loadData() }
             it.setItemChildClickListener { view, i, s ->
                 when (view.id) {
-                    R.id.tv_item_1 -> Toast.makeText(this, "点击了偶数$s 位置=$i", Toast.LENGTH_SHORT).show()
-                    R.id.tv_item_2 -> Toast.makeText(this, "点击了奇数$s 位置=$i", Toast.LENGTH_SHORT).show()
-                    R.id.tv_item_3 -> Toast.makeText(this, "点击了3的倍数$s 位置=$i", Toast.LENGTH_SHORT).show()
+                    R.id.tv_item_1 -> toast("点击了偶数${s.text}-${s.index} 位置=$i")
+                    R.id.tv_item_2 -> toast("点击了奇数$${s.text}-${s.index} 位置=$i")
+                    R.id.tv_item_3 -> toast("点击了3的倍数$${s.text}-${s.index} 位置=$i")
                 }
             }
         }
@@ -204,12 +200,12 @@ class MainActivity : AppCompatActivity() {
         tvAddToCenter.setOnClickListener {
             val list = mutableListOf<ShowDataEntity>()
             repeat(5) { list.add(ShowDataEntity(it, "这是被添加的数据-$it")) }
-            adapter.addData(list) { adapter.dataSize / 2 }
+            adapter.addData(list) { dataList -> dataList.size / 2 }
         }
 
         tvRemove.setOnClickListener {
-            adapter.dataList.getOrNull(10)?.let {
-                adapter.removeData(it)
+            adapter.dataList { list ->
+                list.getOrNull(10)?.let { adapter.removeData(it) }
             }
         }
 
@@ -262,101 +258,19 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             delay(1500)
             val list = mutableListOf<ShowDataEntity>()
-            val lastIndex = adapter.dataList.size
-            repeat(20) {
-                list.add(ShowDataEntity(lastIndex + it, "${lastIndex + it}"))
+            adapter.dataSize { lastIndex ->
+                repeat(20) {
+                    list.add(ShowDataEntity(lastIndex + it, "${lastIndex + it}"))
+                }
+                showList.addAll(list)
+                adapter.addData(list)
             }
-            showList.addAll(list)
-            adapter.addData(list)
         }
     }
 
     private fun getTextAdapter() = TextAdapter(this)
 
     private fun getMultiAdapter() = MyAdapter(this)
-
-    private var scrollListener: OnScrollListener? = null
-
-    private val distanceState = MutableStateFlow<Int?>(null)
-
-    override fun onStart() {
-        super.onStart()
-        lifecycleScope.launch(Dispatchers.Default) {
-            distanceState.filterNotNull().debounce(200).collect { lastChildY ->
-                val child = rvData.children.firstOrNull() ?: return@collect
-                val local = IntArray(2)
-                child.getLocationOnScreen(local)
-                val childY = local[1]
-                println("MainActivity.distanceState lwl childY=$childY lastChildY=$lastChildY")
-                if (lastChildY == childY) {
-                    println("MainActivity.distanceState lwl 滑动停止")
-                } else {
-                    println("MainActivity.distanceState lwl 还在滑动")
-                    distanceState.emit(childY)
-                }
-            }
-        }
-    }
-
-    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
-        when (ev?.action) {
-            MotionEvent.ACTION_DOWN -> {
-                val x = ev.rawX.toInt()
-                val y = ev.rawY.toInt()
-                val findView = findViewByCoordinates(clRoot, x, y)
-                println("MainActivity.dispatchTouchEvent lwl findView=$findView")
-                findView?.let { view ->
-                    lifecycleScope.launch {
-                        distanceState.emit(0)
-                    }
-
-
-//                    scrollListener?.let { listener -> view.removeOnScrollListener(listener) }
-//                    if (scrollListener == null) {
-//                        scrollListener = object : OnScrollListener() {
-//
-//                            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-//                                super.onScrollStateChanged(recyclerView, newState)
-//                                println("MainActivity.onScrollStateChanged lwl newState=$newState")
-//                            }
-//
-//                            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-//                                super.onScrolled(recyclerView, dx, dy)
-//                                println("MainActivity.onScrolled lwl dy=$dy")
-//                            }
-//                        }
-//                    }
-//                    view.addOnScrollListener(scrollListener!!)
-                }
-            }
-        }
-        return super.dispatchTouchEvent(ev)
-    }
-
-    private fun findViewByCoordinates(view: View, x: Int, y: Int): RecyclerView? {
-        if (view is ViewGroup) {
-            val viewGroup = view
-            for (i in 0 until viewGroup.childCount) {
-                val child = viewGroup.getChildAt(i)
-                if (isPointInsideView(x, y, child)) {
-                    println("MainActivity.findViewByCoordinates lwl child=$child")
-                    if (child is RecyclerView) return child
-                    return (child as? ViewGroup)?.let { findViewByCoordinates(it, x, y) }
-                }
-            }
-        }
-        return null
-    }
-
-    private fun isPointInsideView(x: Int, y: Int, view: View): Boolean {
-        val location = IntArray(2)
-        view.getLocationOnScreen(location)
-        val viewX = location[0]
-        val viewY = location[1]
-        val viewWidth = view.width
-        val viewHeight = view.height
-        return x >= viewX && x <= (viewX + viewWidth) && y >= viewY && y <= (viewY + viewHeight)
-    }
 }
 
 // ************************************************item只有一种类型*******************************************************************
@@ -369,6 +283,10 @@ class TextAdapter(context: Context) : SingleAdapterAbs<ShowDataEntity>(context, 
     }
 
     override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
+        if (payload == REFRESH_ADAPTER_POS) {
+            return
+        }
+
         setText(R.id.tvText, "$t-$pos ")
     }
 
@@ -396,6 +314,10 @@ class MyAdapterDelegate1 : MultiAdapterDelegateAbs<ShowDataEntity>() {
 
     @SuppressLint("SetTextI18n")
     override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
+//        if (payload == REFRESH_ADAPTER_POS) {
+//            return
+//        }
+
         val textView = getView<TextView>(R.id.tv_item_1)
         textView.text = "这是偶数--${t.text}-$pos"
     }
@@ -425,6 +347,10 @@ class MyAdapterDelegate2 : MultiAdapterDelegateAbs<ShowDataEntity>() {
 
     @SuppressLint("SetTextI18n")
     override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
+//        if (payload == REFRESH_ADAPTER_POS) {
+//            return
+//        }
+
         val textView = getView<TextView>(R.id.tv_item_2)
         textView.text = "这是奇数-${t.text}-$pos"
     }
@@ -455,6 +381,10 @@ class MyAdapterDelegate3 : MultiAdapterDelegateAbs<ShowDataEntity>() {
 
     @SuppressLint("SetTextI18n")
     override fun ClaBaseViewHolder<ShowDataEntity>.bindHolder(t: ShowDataEntity, pos: Int, payload: String?) {
+//        if (payload == REFRESH_ADAPTER_POS) {
+//            return
+//        }
+
         val textView = getView<TextView>(R.id.tv_item_3)
         textView.text = "这是3的倍数-${t.text}-$pos"
     }

@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.view.View
+import com.cla.adapter.library.ClaBaseAdapter.Companion.REFRESH_ADAPTER_POS
 import com.cla.adapter.library.ClaBaseAdapter.Companion.REFRESH_ADAPTER_PRE_LOAD
 import java.lang.ref.WeakReference
 
@@ -98,7 +99,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
 
                 preLoadBuilder.let {
                     // 设置预加载偏移量，默认是到列表的二分之一的时候开始加载下一页的数据
-                    it.preloadItemCount = it.preCount.invoke(newDataSize)
+                    it.preloadItemCount = it.preCount.invoke(newDataSize).coerceAtMost(10)
                     it.preloadClose = false
                     it.reset()
                 }
@@ -166,10 +167,28 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
             }
 
             ADD_DATA -> adapter.apply {
-                val index = msg.arg1
-                val addToEnd = msg.arg2 == 1
-                val list = msg.obj as? List<T> ?: return
+                val item = msg.obj as? AdapterAddItem<T>? ?: return
+                val startData = item.startData
+                val addToEnd = item.addToEnd
+                val list = item.list
                 if (list.isEmpty()) {
+                    return
+                }
+
+                var pos: Int? = null
+                if (addToEnd) {
+                    pos = showDataSize
+                } else {
+                    if (startData != null) {
+                        val index = showDataList.indexOf(startData)
+                        if (index < 0 || index >= showDataSize) {
+                            return
+                        }
+                        pos = index
+                    }
+                }
+
+                if (pos == null) {
                     return
                 }
 
@@ -182,7 +201,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                     }
                 }
 
-                val addIndex = if (index > showDataSize) showDataSize else index
+                val addIndex = if (pos > showDataSize) showDataSize else pos
                 val aPos = adapterPos(addIndex)
                 val count = list.size
 
@@ -192,7 +211,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
                 }
 
                 notifyItemRangeInserted(aPos, count)
-                notifyVisibleItems(aPos, showDataSize - aPos, "")
+                notifyVisibleItems(aPos, showDataSize - aPos, REFRESH_ADAPTER_POS)
                 // 刷新数据item
                 // 刷新预加载view
                 notifyPreLoad()
@@ -210,7 +229,7 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
 
                 val aPos = adapterPos(showPos)
                 notifyItemRemoved(aPos)
-                notifyVisibleItems(aPos, showDataSize - aPos, "")
+                notifyVisibleItems(aPos, showDataSize - aPos, REFRESH_ADAPTER_POS)
             }
 
             REFRESH_ITEM -> adapter.apply {
@@ -362,7 +381,12 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
 
             REPLACE_ITEMS -> adapter.apply {
                 val replace = msg.obj as AdapterReplaceItems<T>? ?: return
-                val pos = replace.pos
+                val startData = replace.startData
+                val pos = showDataList.indexOf(startData)
+                if (pos < 0 || pos >= showDataSize) {
+                    return
+                }
+
                 val newList = replace.list
                 val payload = replace.payload
                 val startPos = adapterPos(pos)
@@ -412,9 +436,10 @@ internal class ClaBaseAdapterHandler<T>(adapter: ClaBaseAdapter<T>) : Handler(Lo
     }
 }
 
+internal data class AdapterAddItem<T>(val startData: T?, val addToEnd: Boolean, val list: List<T>)
 internal data class AdapterRefreshItem<T>(val data: T, val payload: String?)
 internal data class AdapterRefreshItems<T>(val data: T, val count: Int, val payload: String?)
-internal data class AdapterReplaceItems<T>(val pos: Int, val list: List<T>, val payload: String?)
+internal data class AdapterReplaceItems<T>(val startData: T, val list: List<T>, val payload: String?)
 
 /**
  * 刷新列表
