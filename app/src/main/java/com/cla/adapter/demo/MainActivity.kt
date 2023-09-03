@@ -200,7 +200,7 @@ class MainActivity : AppCompatActivity() {
         tvAddToCenter.setOnClickListener {
             val list = mutableListOf<ShowDataEntity>()
             repeat(5) { list.add(ShowDataEntity(it, "这是被添加的数据-$it")) }
-            adapter.addData(list) { dataList -> dataList.size / 2 }
+            adapter.addData(list) { e -> e.dataSize / 2 }
         }
 
         tvRemove.setOnClickListener {
@@ -258,9 +258,10 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             delay(1500)
             val list = mutableListOf<ShowDataEntity>()
-            adapter.dataSize { lastIndex ->
+            adapter.dataList { dataList ->
+                val dataSize = dataList.size
                 repeat(20) {
-                    list.add(ShowDataEntity(lastIndex + it, "${lastIndex + it}"))
+                    list.add(ShowDataEntity(dataSize + it, "${dataSize + it}"))
                 }
                 showList.addAll(list)
                 adapter.addData(list)

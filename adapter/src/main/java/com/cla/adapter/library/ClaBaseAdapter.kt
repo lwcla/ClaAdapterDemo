@@ -10,14 +10,17 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
+import com.cla.adapter.library.ClaBaseAdapter.WillChangeDataList
 import com.cla.adapter.library.holder.ClaBaseViewHolder
 import com.cla.adapter.library.holder.DefaultViewHolder
 import com.cla.adapter.library.holder.EmptyHolder
 import com.cla.adapter.library.holder.FooterHolder
 import com.cla.adapter.library.holder.HeaderHolder
 import com.cla.adapter.library.holder.LoadingViewHolder
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.Arrays
 import java.util.concurrent.Executors
+import kotlin.coroutines.resume
 
 abstract class ClaBaseAdapter<T>(
     val context: Context,
@@ -84,7 +87,7 @@ abstract class ClaBaseAdapter<T>(
     val showDataSize get() = showDataList.size
 
     /**
-     * [dataList] [dataSize] 是使用者对adapter之后的数据集合和数量，但是这个时候这些数据并不一定已经显示在列表中了
+     * [dataList] 是使用者对adapter之后的数据集合和数量，但是这个时候这些数据并不一定已经显示在列表中了
      */
     private val dataList = mutableListOf<T>()
     private val dataSize get() = dataList.size
@@ -241,9 +244,12 @@ abstract class ClaBaseAdapter<T>(
         execute { block(dataList) }
     }
 
-    fun dataSize(block: (Int) -> Unit) {
-        execute { block(dataSize) }
+    suspend fun dataListIsEmpty() = suspendCancellableCoroutine<Boolean> { cont ->
+        execute {
+            cont.resume(dataList.isEmpty())
+        }
     }
+
 
     /**
      * 因为加上了headerView，所以数据集合中的位置和该数据在adapter中的位置并不相等
@@ -271,11 +277,11 @@ abstract class ClaBaseAdapter<T>(
         return posFromData
     }
 
-    fun scrollToPosition(pos: Int) {
+    fun scrollToPosition(index: IndexOfDataList<T>) {
         execute {
             val msg = myHandler.obtainMessage()
             msg.what = ClaBaseAdapterHandler.SCROLL_TO_POSITION
-            msg.arg1 = pos
+            msg.arg1 = index.invoke(IndexEntity(dataList))
             myHandler.sendMessage(msg)
         }
     }
@@ -367,13 +373,13 @@ abstract class ClaBaseAdapter<T>(
      * @param isReplace 替换还是添加
      * @param filter 是否需要执行这次操作,在singleThread中执行过滤的操作，这样才能保证拿到的[dataList]中的下标和数据是正确的
      */
-    open fun addOrReplace(t: T, index: (dataList: List<T>) -> Int, isReplace: () -> Boolean, filter: () -> Boolean = { true }) {
+    open fun addOrReplace(t: T, index: IndexOfDataList<T>, isReplace: ReplaceOfDataList<T>, filter: WillChangeDataList<T> = WillChangeDataList<T> { true }) {
         execute {
-            if (!filter()) {
+            if (!filter.invoke(IndexEntity(dataList))) {
                 return@execute
             }
 
-            val replace = isReplace()
+            val replace = isReplace.invoke(IndexEntity(dataList))
             if (replace) {
                 replaceItem(index, t)
             } else {
@@ -397,21 +403,21 @@ abstract class ClaBaseAdapter<T>(
     }
 
     /** 添加数据 */
-    open fun addData(t: T, index: (dataList: List<T>) -> Int) {
+    open fun addData(t: T, index: IndexOfDataList<T>) {
         execute {
             addData(listOf(t), index)
         }
     }
 
     /** 添加数据 */
-    open fun addData(list: List<T>, index: (dataList: List<T>) -> Int) {
+    open fun addData(list: List<T>, index: IndexOfDataList<T>) {
         execute {
             if (dataList.isEmpty()) {
                 refreshData(list)
                 return@execute
             }
 
-            val pos = index(dataList)
+            val pos = index.invoke(IndexEntity(dataList))
             if (pos < 0) {
                 return@execute
             }
@@ -442,19 +448,26 @@ abstract class ClaBaseAdapter<T>(
         }
     }
 
+    open fun removeData(data: DataOfDataList<T>) {
+        execute {
+            val data = data.invoke(IndexEntity(dataList)) ?: return@execute
+            removeData(data)
+        }
+    }
+
     /**
      * 删除数据
      */
-    open fun removeData(index: (dataList: List<T>) -> Int) {
+    open fun removeDataOfIndex(index: IndexOfDataList<T>) {
         execute {
-            val pos = index(dataList)
+            val pos = index.invoke(IndexEntity(dataList))
             dataList.getOrNull(pos)?.let { removeData(it) }
         }
     }
 
-    open fun refreshItem(index: (dataList: List<T>) -> Int, payload: String? = null) {
+    open fun refreshItem(index: IndexOfDataList<T>, payload: String? = null) {
         execute {
-            val pos = index(dataList)
+            val pos = index.invoke(IndexEntity(dataList))
             dataList.getOrNull(pos)?.let { refreshItem(it, payload) }
         }
     }
@@ -468,6 +481,13 @@ abstract class ClaBaseAdapter<T>(
         }
     } catch (e: Exception) {
         e.printStackTrace()
+    }
+
+    open fun refreshItem(data: DataOfDataList<T>, payload: String? = null) {
+        execute {
+            val t = data.invoke(IndexEntity(dataList)) ?: return@execute
+            refreshItem(t, payload)
+        }
     }
 
     /**
@@ -494,9 +514,9 @@ abstract class ClaBaseAdapter<T>(
      * @param count Int
      * @param payload String?
      */
-    open fun refreshItems(index: (dataList: List<T>) -> Int, count: Int, payload: String? = null) {
+    open fun refreshItems(index: IndexOfDataList<T>, count: Int, payload: String? = null) {
         execute {
-            val pos = index(dataList)
+            val pos = index.invoke(IndexEntity(dataList))
             dataList.getOrNull(pos)?.let { refreshItems(it, count, payload) }
         }
     }
@@ -526,7 +546,7 @@ abstract class ClaBaseAdapter<T>(
      * @param t 替换的数据
      * @param payload String?
      */
-    open fun replaceItem(index: (dataList: List<T>) -> Int, t: T, payload: String? = null) {
+    open fun replaceItem(index: IndexOfDataList<T>, t: T, payload: String? = null) {
         execute {
             replaceItems(index, listOf(t), payload)
         }
@@ -538,13 +558,13 @@ abstract class ClaBaseAdapter<T>(
      * @param newList 替换的数据
      * @param payload String?
      */
-    open fun replaceItems(index: (dataList: List<T>) -> Int, newList: List<T>, payload: String? = null) {
+    open fun replaceItems(index: IndexOfDataList<T>, newList: List<T>, payload: String? = null) {
         execute {
             if (dataList.isEmpty()) {
                 return@execute
             }
 
-            val pos = index(dataList)
+            val pos = index.invoke(IndexEntity(dataList))
             if (pos < 0) {
                 return@execute
             }
@@ -1019,6 +1039,28 @@ abstract class ClaBaseAdapter<T>(
          * 生成viewHolder
          */
         abstract fun convertHolder(adapter: ClaBaseAdapter<T>, parent: ViewGroup): ClaBaseViewHolder<T>
+    }
+
+    data class IndexEntity<T>(val dataList: List<T>) {
+
+        val dataSize get() = dataList.size
+
+    }
+
+    fun interface IndexOfDataList<T> {
+        fun invoke(entity: IndexEntity<T>): Int
+    }
+
+    fun interface DataOfDataList<T> {
+        fun invoke(entity: IndexEntity<T>): T?
+    }
+
+    fun interface ReplaceOfDataList<T> {
+        fun invoke(entity: IndexEntity<T>): Boolean
+    }
+
+    fun interface WillChangeDataList<T> {
+        fun invoke(entity: IndexEntity<T>): Boolean
     }
 }
 
