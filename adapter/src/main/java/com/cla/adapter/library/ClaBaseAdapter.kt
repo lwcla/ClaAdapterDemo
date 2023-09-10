@@ -800,7 +800,7 @@ abstract class ClaBaseAdapter<T>(
             is GridLayoutManager -> {
                 val beyondCount = manager.spanCount * 2
                 refreshPos = maxOf(manager.findFirstVisibleItemPosition() - beyondCount, startPos)
-                val lastPos = minOf(manager.findLastVisibleItemPosition() + beyondCount, showDataSize - 1)
+                val lastPos = minOf(manager.findLastVisibleItemPosition() + beyondCount, showDataSize)
                 refreshCount = lastPos - refreshPos
             }
 
@@ -817,7 +817,7 @@ abstract class ClaBaseAdapter<T>(
                 val lastVisiblePos = last.lastOrNull() ?: showDataSize
 
                 refreshPos = maxOf(firstVisiblePos - beyondCount, startPos)
-                val lastPos = minOf(lastVisiblePos + beyondCount, showDataSize - 1)
+                val lastPos = minOf(lastVisiblePos + beyondCount, showDataSize)
                 refreshCount = lastPos - refreshPos
             }
 
@@ -826,7 +826,7 @@ abstract class ClaBaseAdapter<T>(
                 // 获取第一个可见view的位置
                 refreshPos = maxOf(manager.findFirstVisibleItemPosition() - beyondCount, startPos)
                 // 获取最后一个可见view的位置
-                val lastPos = minOf(manager.findLastVisibleItemPosition() + beyondCount, showDataSize - 1)
+                val lastPos = minOf(manager.findLastVisibleItemPosition() + beyondCount, showDataSize)
                 refreshCount = lastPos - refreshPos
             }
 
