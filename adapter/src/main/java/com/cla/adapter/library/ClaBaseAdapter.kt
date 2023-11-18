@@ -1008,7 +1008,7 @@ abstract class ClaBaseAdapter<T>(
     override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
         super.onDetachedFromRecyclerView(recyclerView)
         myHandler.removeCallbacksAndMessages(null)
-        runCatching { singleThread.shutdownNow() }
+        runCatching { singleThread.shutdown() }
         this.recyclerView = null
     }
 
