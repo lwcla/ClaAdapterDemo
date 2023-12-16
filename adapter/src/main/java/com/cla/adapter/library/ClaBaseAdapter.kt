@@ -83,8 +83,8 @@ abstract class ClaBaseAdapter<T>(
      * 这就会有一定的延迟
      * 如果调refreshData()方法去刷新列表，然后马上想要拿到设置的数据集合的数量，应该是取[dataSize]的值
      */
-    val showDataList = mutableListOf<T>()
-    val showDataSize get() = showDataList.size
+    internal val showDataList = mutableListOf<T>()
+    internal val showDataSize get() = showDataList.size
 
     /**
      * [dataList] 是使用者对adapter之后的数据集合和数量，但是这个时候这些数据并不一定已经显示在列表中了
@@ -240,8 +240,29 @@ abstract class ClaBaseAdapter<T>(
         itemChildLongClickListener = click
     }
 
+    suspend fun dataListSync() = suspendCancellableCoroutine<List<T>> { cont ->
+        execute {
+            runCatching { cont.resume(dataList) }
+        }
+    }
+
     fun dataList(block: (List<T>) -> Unit) {
         execute { block(dataList) }
+    }
+
+    suspend fun showingDataListSync() = suspendCancellableCoroutine<List<T>> { cont ->
+        execute {
+            runCatching { cont.resume(showDataList) }
+        }
+    }
+
+    /** 正在显示的数据集合 */
+    fun showingDataList(block: (List<T>) -> Unit) {
+        execute {
+            myHandler.post {
+                block(showDataList)
+            }
+        }
     }
 
     suspend fun dataListIsEmpty() = suspendCancellableCoroutine<Boolean> { cont ->
