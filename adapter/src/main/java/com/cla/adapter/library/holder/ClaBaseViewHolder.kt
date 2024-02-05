@@ -13,6 +13,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.IdRes
 import androidx.core.view.children
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.cla.adapter.library.ClaBaseAdapter
 import com.cla.adapter.library.PreLoadBuilder
 import com.cla.adapter.library.clickDebounce
@@ -264,6 +265,14 @@ internal class LoadingViewHolder<T>(
     override fun bind(baseAdapter: ClaBaseAdapter<T>, t: T, position: Int, payload: String?) {
         bind()
     }
+
+    override fun viewAttachedToWindow() {
+        super.viewAttachedToWindow()
+        //这里设置占满一行
+        (itemView.layoutParams as? StaggeredGridLayoutManager.LayoutParams?)?.let {
+            it.isFullSpan = true
+        }
+    }
 }
 
 internal abstract class ContainerViewHolder<T>(
@@ -288,6 +297,14 @@ internal abstract class ContainerViewHolder<T>(
 
     override fun bind(baseAdapter: ClaBaseAdapter<T>, t: T, position: Int, payload: String?) {
         bind(childView)
+    }
+
+    override fun viewAttachedToWindow() {
+        super.viewAttachedToWindow()
+        //这里设置占满一行
+        (containerView.layoutParams as? StaggeredGridLayoutManager.LayoutParams?)?.let {
+            it.isFullSpan = true
+        }
     }
 }
 

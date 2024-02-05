@@ -23,6 +23,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import cn.cla.round.view.widget.ClaRoundTextView
 import com.cla.adapter.library.*
 import com.cla.adapter.library.holder.ClaBaseViewHolder
@@ -217,10 +218,10 @@ class MainActivity : AppCompatActivity() {
             adapter.addData(ShowDataEntity(0, "这是添加到第一个位置的数据-0")) { 0 }
         }
 
-        val manager = LinearLayoutManager(this)
+//        val manager = LinearLayoutManager(this)
 //        val manager = GridLayoutManager(this, 4)
-//        val manager = StaggeredGridLayoutManager(3, RecyclerView.VERTICAL)
-
+        val manager = StaggeredGridLayoutManager(3, RecyclerView.VERTICAL)
+        manager.gapStrategy = StaggeredGridLayoutManager.GAP_HANDLING_NONE
 //        rvData.itemAnimator = null
         rvData.layoutManager = manager
         rvData.adapter = adapter
@@ -328,12 +329,13 @@ class MyAdapterDelegate1 : MultiAdapterDelegateAbs<ShowDataEntity>() {
         it.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         it.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         it.gravity = Gravity.CENTER
-        it.setPadding(55.dp)
+        it.setPadding(15.dp)
         it.resetClaLine {
             lineColor = ContextCompat.getColor(context, com.cla.adapter.library.R.color.color_eeeeee)
             lineWidth = 1.dp.toFloat()
             lineSpace = 10.dp.toFloat()
             showBottom = true
+            showTop = true
         }
         it.changeAlphaWhenPress = true
     }
@@ -368,6 +370,7 @@ class MyAdapterDelegate2 : MultiAdapterDelegateAbs<ShowDataEntity>() {
             lineWidth = 1.dp.toFloat()
             lineSpace = 10.dp.toFloat()
             showBottom = true
+            showTop = true
         }
         it.changeAlphaWhenPress = true
     }
@@ -402,6 +405,7 @@ class MyAdapterDelegate3 : MultiAdapterDelegateAbs<ShowDataEntity>() {
             lineWidth = 5.dp.toFloat()
             lineSpace = 10.dp.toFloat()
             showBottom = true
+            showTop = true
         }
         it.changeAlphaWhenPress = true
     }
